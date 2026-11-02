@@ -512,6 +512,7 @@ function render() {
       '<div class="mrow"><span>' + MONTH[S.m] + ' trading P&amp;L <span class="mhint">(gross ' + money(M.gross) + ' − charges ' + inr(M.charges) + ')</span></span><span class="mono ' + col(M.net) + '">' + money(M.net) + '</span></div>' +
       '<div class="mrow total"><span>' + (isNow ? 'Money left now' : 'Closing — carried to ' + MONTH[(S.m + 1) % 12]) + '</span><span class="mono">' + cl + '</span></div>' +
       '</div><span class="mhint">Each month starts from the money left last month · tap to add / withdraw funds</span></button>';
+    if (M.opening < 0 || M.closing < 0) h += '<button type="button" class="banner" data-act="settings" style="display:block;width:calc(100% - 32px);border:0;text-align:left;margin-top:8px">Balance went below ₹0 — the starting point is probably wrong. Tap here → "Balance right now" to match your broker.</button>';
   }
 
   h += '<div class="chips">' + [['all', 'All'], ['day', 'Day trading'], ['swing', 'Swing']].map(function (c) {
@@ -715,10 +716,13 @@ function settingsSheet() {
   return '<div class="sh"><div><div class="t">Settings · ' + esc(S.who) + '</div><div class="s">Signed in as ' + esc(S.email) + '</div></div>' + closeBtn() + '</div>' +
     '<button type="button" class="btn dark" data-act="reports">' + ICON.report + 'Reports — month by month</button>' +
     '<div style="height:1px;background:var(--soft);margin:2px 0"></div>' +
-    '<label class="f">' + esc(S.who) + '\'s starting capital (₹)<input class="in mono" id="s_cap" inputmode="decimal" value="' + esc(st ? st.start_capital : '') + '" placeholder="e.g. 200000" style="font-size:18px;height:50px"></label>' +
-    '<span class="hint">The money in the trading account when you started tracking. Later deposits go under + → Add / withdraw funds.</span>' +
+    '<label class="f">' + esc(S.who) + '\'s balance right now (₹)<input class="in mono" id="s_bal" inputmode="decimal" placeholder="What your broker app shows today" style="font-size:18px;height:50px"></label>' +
+    '<span class="hint">Easiest way to make "Money left" match your broker. Type today\'s balance' + (S.who === 'Chandana' ? '' : ' (Kotak + Zerodha together)') + ' — the app works backwards through all your funds and trades to find the right starting point.</span>' +
+    '<button type="button" class="btn dark" data-act="saveBal">Match my balance</button>' +
+    '<details style="font-size:13px"><summary style="cursor:pointer;color:var(--muted);min-height:32px">Advanced: set starting capital directly</summary>' +
+    '<label class="f" style="margin-top:8px">Balance before your first trade/fund in the app (₹)<input class="in mono" id="s_cap" inputmode="decimal" value="' + esc(st ? st.start_capital : '') + '" placeholder="e.g. 25000"></label>' +
+    '<button type="button" class="btn sm ghost" data-act="saveCap" style="margin-top:8px;width:100%">Save starting capital</button></details>' +
     '<span class="hint">Brokers used for charges: ' + (S.who === 'Chandana' ? 'Groww for everything.' : 'Kotak Neo for Nifty / Sensex / BankNifty, Zerodha for stocks &amp; stock options.') + '</span>' +
-    '<button type="button" class="btn dark" data-act="saveCap">Save</button>' +
     '<div style="height:1px;background:var(--soft);margin:2px 0"></div>' +
     '<label class="f">Gemini key (shared by both phones)<input class="in mono" id="s_key" type="password" autocomplete="off" value="' + esc(S.ai.key) + '" placeholder="Paste key here"></label>' +
     '<span class="hint">Reads your screenshots and PDFs. Get a free key at aistudio.google.com → Get API key. Saved once, works on both phones.</span>' +
@@ -973,7 +977,7 @@ function compressImage(file) {
     img.src = url;
   });
 }
-var APP_VERSION = '2 Nov 2026 · v6';
+var APP_VERSION = '2 Nov 2026 · v7';
 function withTimeout(p, ms, msg) {
   return new Promise(function (res, rej) {
     var t = setTimeout(function () { rej(new Error(msg)); }, ms);
@@ -1295,6 +1299,18 @@ async function deleteFund(id) {
   if (r.error) { toast('Could not delete: ' + r.error.message); return; }
   S.funds = S.funds.filter(function (f) { return f.id !== id; }); saveCache(); renderSheet(); render(); queueReload();
 }
+async function saveBal() {
+  var raw = $('s_bal').value;
+  if (!String(raw).trim()) { toast('Type your balance first.'); return; }
+  var bal = num(raw);
+  var fundsNet = S.funds.filter(function (f) { return f.profile === S.who; }).reduce(function (a, f) { return a + num(f.amount); }, 0);
+  var pnlNet = S.trades.filter(function (t) { return t.profile === S.who; }).reduce(function (a, t) { return a + net(t); }, 0);
+  var start = r2(bal - fundsNet - pnlNet);
+  var r = await sb.from('settings').upsert({ profile: S.who, start_capital: start });
+  if (r.error) { toast('Could not save: ' + r.error.message); return; }
+  S.settings[S.who] = Object.assign({}, S.settings[S.who] || {}, { profile: S.who, start_capital: start }); saveCache();
+  closeSheet(); toast('Matched. Starting point set to ' + inr(start) + ' so today shows ' + inr(bal) + '.', null, null, 6000);
+}
 async function saveCap() {
   var v = num($('s_cap').value);
   var r = await sb.from('settings').upsert({ profile: S.who, start_capital: v });
@@ -1359,6 +1375,7 @@ document.addEventListener('click', function (e) {
     case 'saveImport': saveImport(); break;
     case 'delFund': deleteFund(id); break;
     case 'saveCap': saveCap(); break;
+    case 'saveBal': saveBal(); break;
     case 'saveKey': saveKey(); break;
     case 'reports': openSheet({ type: 'reports' }); break;
     case 'report': openSheet({ type: 'report', k: v }); break;
