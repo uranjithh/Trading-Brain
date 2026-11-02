@@ -50,7 +50,7 @@ button{cursor:pointer}
 .mrows{display:flex;flex-direction:column;gap:6px;border-top:1px solid #EFEFEB;padding-top:10px}
 .mrow{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;gap:8px}
 .mrow span:first-child{color:var(--ink2)}
-.mrow .mono{font-weight:600}
+.mrow .mono{font-weight:600;white-space:nowrap}
 .mrow.total{border-top:1px dashed var(--line2);padding-top:7px;font-weight:700}
 .mrow.total span:first-child{color:var(--ink)}
 .mhint{font-size:11px;color:var(--muted)}
@@ -187,6 +187,17 @@ select.in{padding-right:4px}
 .dh{background:var(--soft2);font-size:11px;font-weight:700;color:var(--muted)}
 .dr{border:0;border-top:1px solid var(--soft);background:#fff;width:100%}
 .dh span:nth-child(n+2),.dr span:nth-child(n+2){text-align:right}
+.chg2{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.chg2 .l{font-size:11px;color:var(--muted)}
+.chg2 .ctop{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+.chg2 .cv{font-family:var(--mono);font-size:20px;font-weight:700;margin-top:2px}
+.chg2 .cside{display:flex;flex-direction:column;align-items:flex-end;font-size:12px;color:var(--muted)}
+.chg2 .cline{font-size:13px;color:var(--ink2);line-height:1.4}
+.ctab{display:flex;flex-direction:column;border-top:1px solid #EFEFEB;padding-top:6px}
+.crh,.crr{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,.6fr) minmax(0,1fr) minmax(0,1fr);gap:6px;padding:5px 0;font-size:12.5px;align-items:center}
+.crh{font-size:11px;font-weight:700;color:var(--muted)}
+.crh span:nth-child(n+2),.crr span:nth-child(n+2){text-align:right}
+@media (min-width:1000px){.colL2 .chg2{margin-left:0!important;margin-right:0!important}}
 .pastehint{display:none;text-align:center;font-size:12px;color:var(--muted);padding-top:10px}
 @media (hover:hover) and (pointer:fine){.pastehint{display:block}}
 /* ---- tablets / small laptops ---- */
@@ -452,6 +463,35 @@ function moneyFor(who, y, m) {
   o.green = 0; o.red = 0; Object.keys(days).forEach(function (d) { if (Math.round(days[d]) > 0) o.green++; else if (Math.round(days[d]) < 0) o.red++; });
   return o;
 }
+// Charges vs profit, split by segment
+var SEG_ORDER = [['day:nifty', 'Nifty'], ['day:sensex', 'Sensex'], ['day:banknifty', 'BankNifty'], ['day:stockopt', 'Stock options'], ['day:stocks', 'Stocks'], ['day:other', 'Other'], ['swing', 'Swing']];
+function segOf(t) { return t.category === 'swing' ? 'swing' : 'day:' + (SUB_LABEL[t.sub] ? t.sub : 'other'); }
+function chargesCard(trades, monthLabel, inReport) {
+  if (!trades.length) return '';
+  var gross = 0, ch = 0, seg = {};
+  trades.forEach(function (t) {
+    var k = segOf(t), g = num(t.pnl), c = num(t.charges);
+    gross += g; ch += c;
+    var e = seg[k] || (seg[k] = { n: 0, gross: 0, ch: 0 }); e.n++; e.gross += g; e.ch += c;
+  });
+  var netv = gross - ch;
+  var line;
+  if (gross > 0) line = 'Charges ate <b>' + Math.round(ch / gross * 100) + '%</b> of your gross profit (' + money(gross) + ').';
+  else if (gross < 0) line = 'Charges made the loss bigger: ' + money(gross) + ' gross → <b>' + money(netv) + '</b> net.';
+  else line = 'Gross P&amp;L was ₹0 — charges are the whole loss.';
+  var avg = ch / trades.length;
+  var h = '<div class="card chg2"' + (inReport ? '' : ' style="margin:8px 16px 0"') + '>' +
+    '<div class="ctop"><div><div class="l">Charges' + (monthLabel ? ' in ' + monthLabel : '') + '</div><div class="cv r">−' + inr(ch) + '</div></div>' +
+    '<div class="cside"><span>' + trades.length + ' trades</span><span>~' + inr(avg) + ' per trade</span></div></div>' +
+    '<div class="cline">' + line + '</div>' +
+    '<div class="ctab" role="table" aria-label="Charges by segment"><div class="crh" role="row"><span role="columnheader">Segment</span><span role="columnheader">Trades</span><span role="columnheader">Charges</span><span role="columnheader">Net P&amp;L</span></div>';
+  SEG_ORDER.forEach(function (sg) {
+    var e = seg[sg[0]]; if (!e) return;
+    var n = e.gross - e.ch;
+    h += '<div class="crr" role="row"><span role="cell">' + sg[1] + '</span><span role="cell">' + e.n + '</span><span role="cell" class="mono r">−' + inr(e.ch) + '</span><span role="cell" class="mono ' + col(n) + '">' + money(n) + '</span></div>';
+  });
+  return h + '</div></div>';
+}
 function firstMonth(who) {
   var ds = [];
   S.trades.forEach(function (t) { if (t.profile === who) ds.push(t.trade_date); });
@@ -580,6 +620,7 @@ function render() {
   h += '<div class="card stats"><div><div class="l">Green days</div><div class="v g">' + gN + '</div></div>' +
     '<div><div class="l">Red days</div><div class="v r">' + rN + '</div></div>' +
     '<div><div class="l">Win rate</div><div class="v">' + ((gN + rN) ? Math.round(gN / (gN + rN) * 100) + '%' : '—') + '</div></div></div>';
+  h += chargesCard(M.trades, MONTH[S.m]);
   if (anyApprox) h += '<span class="foot">Dot = from a screenshot, so charges are estimated for your broker. They become exact when that week\'s contract note PDF is added.</span>';
   if (S.lastSync) h += '<span class="foot">Synced ' + new Date(S.lastSync).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) + (S.syncing ? ' · syncing…' : '') + '</span>';
   h += '</div></div>';
@@ -767,6 +808,7 @@ function reportSheet(k) {
     '<div class="mrow"><span><b>Net P&amp;L</b> <span class="mhint">' + (M.base > 0 ? sgn(M.net) + Math.abs(M.pct).toFixed(2) + '%' : '') + '</span></span><span class="mono ' + col(M.net) + '">' + money(M.net) + '</span></div>' +
     '<div class="mrow total"><span>Money left at end</span><span class="mono">' + (M.closing < 0 ? '−' : '') + inr(M.closing) + '</span></div>' +
     '</div></div>';
+  h += chargesCard(M.trades, '', true);
   // day-wise
   var ev = {};
   M.trades.forEach(function (t) { var e = ev[t.trade_date] || (ev[t.trade_date] = { n: 0, gross: 0, ch: 0, fund: 0 }); e.n++; e.gross += num(t.pnl); e.ch += num(t.charges); });
@@ -977,7 +1019,7 @@ function compressImage(file) {
     img.src = url;
   });
 }
-var APP_VERSION = '2 Nov 2026 · v7';
+var APP_VERSION = '2 Nov 2026 · v8';
 function withTimeout(p, ms, msg) {
   return new Promise(function (res, rej) {
     var t = setTimeout(function () { rej(new Error(msg)); }, ms);
