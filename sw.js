@@ -1,6 +1,6 @@
 // Service worker: lets the app open instantly and work offline with saved data.
 // Data itself syncs through Supabase; this only caches the app's own files.
-const CACHE = 'pnlcal-shell-v2';
+const CACHE = 'pnlcal-shell-v3';
 const SHELL = ['./', './index.html', './config.js', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {

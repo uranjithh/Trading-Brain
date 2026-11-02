@@ -728,7 +728,7 @@ function settingsSheet() {
     '<button type="button" class="eye" data-act="eye2" aria-label="Show password">' + ICON.eye + '</button></div>' +
     '<button type="button" class="btn ghost" data-act="changePw">Change my password</button>' +
     '<div class="half"><button type="button" class="btn sm ghost" data-act="sync">Sync now</button><button type="button" class="btn sm ghost" data-act="logout">Sign out</button></div>' +
-    '<span class="hint">' + (S.lastSync ? 'Last synced ' + new Date(S.lastSync).toLocaleString('en-IN') : 'Not synced yet') + '</span>';
+    '<span class="hint">' + (S.lastSync ? 'Last synced ' + new Date(S.lastSync).toLocaleString('en-IN') : 'Not synced yet') + ' · App version ' + APP_VERSION + '</span>';
 }
 
 /* ---------------- reports ---------------- */
@@ -972,16 +972,26 @@ function compressImage(file) {
     img.src = url;
   });
 }
+var APP_VERSION = '2 Nov 2026 · v5';
+function withTimeout(p, ms, msg) {
+  return new Promise(function (res, rej) {
+    var t = setTimeout(function () { rej(new Error(msg)); }, ms);
+    p.then(function (v) { clearTimeout(t); res(v); }, function (e) { clearTimeout(t); rej(e); });
+  });
+}
 async function pdfText(file) {
-  if (!window.pdfjsLib) throw new Error('PDF reader did not load — check internet.');
+  if (!window.pdfjsLib) throw new Error('PDF reader did not load — check internet and reload the page.');
+  aiProgress('Opening the PDF…');
   var buf = await file.arrayBuffer(), pwKey = 'pnlcal.pdfpw.' + S.who, pw = lsGet(pwKey) || '', tries = 0;
   for (;;) {
     try {
-      var doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)), password: pw || undefined }).promise;
+      var doc = await withTimeout(window.pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)), password: pw || undefined }).promise, 30000,
+        'The PDF took too long to open. Reload the page (Cmd+Shift+R / Ctrl+F5) and try again.');
       if (pw) lsSet(pwKey, pw);
       var out = '';
       for (var p = 1; p <= doc.numPages; p++) {
-        var page = await doc.getPage(p), tc = await page.getTextContent();
+        aiProgress('Reading page ' + p + ' of ' + doc.numPages + '…');
+        var page = await doc.getPage(p), tc = await withTimeout(page.getTextContent(), 20000, 'A page of the PDF could not be read.');
         out += '\n--- Page ' + p + ' ---\n' + tc.items.map(function (it) { return it.str + (it.hasEOL ? '\n' : ' '); }).join('');
       }
       if (out.replace(/\s|-|Page \d+/g, '').length < 40) throw new Error('This PDF has no readable text (it may be a scanned image). Take a screenshot of it instead.');
@@ -1068,7 +1078,7 @@ async function geminiJSON(prompt, parts) {
   var models = [pref].concat(MODEL_ORDER).filter(function (m, i, a) { return m && a.indexOf(m) === i; });
   var lastMsg = '';
   for (var mi = 0; mi < models.length; mi++) {
-    var res, j = null, ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 25000);
+    var res, j = null, ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, parts.some(function (x) { return x.inline_data; }) ? 25000 : 90000);
     aiProgress('Reading with ' + models[mi].replace('gemini-', 'Gemini ').replace(/-/g, ' ') + (mi ? ' (previous one was busy)…' : '…'));
     try {
       res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(models[mi]) + ':generateContent?key=' + encodeURIComponent(key), {
@@ -1119,6 +1129,9 @@ async function startCheck(kind, file, statement) {
     var payload;
     if (kind === 'ss') payload = { kind: 'image', media_type: 'image/jpeg', data: await compressImage(file), today: todayStr() };
     else payload = { kind: 'text', text: isSheet(file) ? await sheetText(file) : isCsv(file) ? await file.text() : await pdfText(file), today: todayStr() };
+    if (payload.kind === 'text' && /\bledger\b/i.test(payload.text.slice(0, 3000)) && !/contract note|trade ?book|tradebook/i.test(payload.text.slice(0, 3000)))
+      throw new Error('This is a Ledger — it shows money in/out, not individual trades. Upload a Contract note or Trade book instead (Kotak Neo: Reports → Contract notes / Trade book).');
+    aiProgress('Sending to AI to pick out the trades…');
     var res = await readWithAI(payload);
     if (S.check !== my) return;
     if (kind === 'ss') { var ds = (res.trades || []).map(function (t) { return t.date; }).filter(validDate); if (ds.length) my.date = ds[0]; }
