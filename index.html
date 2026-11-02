@@ -177,6 +177,8 @@ select.in{padding-right:4px}
 
 /* ---- small screens: short amounts; bigger screens: full amounts ---- */
 .cell .af,.cell .n{display:none}
+.pastehint{display:none;text-align:center;font-size:12px;color:var(--muted);padding-top:10px}
+@media (hover:hover) and (pointer:fine){.pastehint{display:block}}
 /* ---- tablets / small laptops ---- */
 @media (min-width:600px){
   .wrap{max-width:720px}
@@ -327,6 +329,7 @@ var ICON = {
   trash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>',
   eye: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
   eyeOff: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.7 0 3.2-.4 4.5-1.1"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>',
+  paste: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="4" rx="1"></rect><path d="M17 5h1a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1"></path><path d="M9 13h6M9 17h4"></path></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M5 12l5 5 9-10"></path></svg>'
 };
 
@@ -521,6 +524,7 @@ function render() {
 
   h += '<div class="legend"><span><i class="sw" style="background:#0E8A4F"></i>Profit</span><span><i class="sw" style="background:#C8372D"></i>Loss</span>' +
     '<span><i class="sw" style="background:#ECECE8"></i>No trades</span><span><i class="sw" style="width:6px;height:6px;border-radius:3px;background:#16181D"></i>Approx</span></div>';
+  h += '<span class="pastehint">Tip: copy a screenshot and press <b>Ctrl+V</b> here, or drag a screenshot / PDF onto this page.</span>';
   h += '</div><div class="colL2">';
 
   function bwCard(e, pos) {
@@ -559,7 +563,8 @@ function renderSheet() {
   if (s.type === 'add') {
     el.innerHTML = '<div class="ov clear" style="z-index:19"><button type="button" class="bd" data-act="close" aria-label="Close"></button></div>' +
       '<div class="menu">' +
-      '<button type="button" class="mi" data-act="pickSS">' + ICON.img + 'Screenshot · daily</button>' +
+      '<button type="button" class="mi" data-act="pasteSS">' + ICON.paste + 'Paste screenshot</button>' +
+      '<button type="button" class="mi" data-act="pickSS">' + ICON.img + 'Screenshot from files</button>' +
       '<button type="button" class="mi" data-act="pickPDF">' + ICON.pdf + 'Contract note PDF · weekly</button>' +
       '<button type="button" class="mi" data-act="funds">' + ICON.swap + 'Add / withdraw funds</button></div>';
     return;
@@ -646,7 +651,10 @@ function fundsSheet() {
   var mode = S.sheet.mode || 'add';
   var list = S.funds.filter(function (f) { return f.profile === S.who; }).slice().reverse();
   return '<div class="sh"><div><div class="t">Funds · ' + esc(S.who) + '</div><div class="s">Money moved in or out of the trading account. Not counted as profit or loss.</div></div>' + closeBtn() + '</div>' +
-    '<button type="button" class="btn ghost" data-act="fundsSS"' + (S.sheet.reading ? ' disabled' : '') + '>' + ICON.img + (S.sheet.reading ? 'Reading screenshot…' : 'Fill from a screenshot') + '</button>' +
+    (S.sheet.reading ? '<button type="button" class="btn ghost" disabled>Reading screenshot…</button>' :
+      '<div class="half"><button type="button" class="btn sm ghost" data-act="pasteFunds">' + ICON.paste + 'Paste screenshot</button>' +
+      '<button type="button" class="btn sm ghost" data-act="fundsSS">' + ICON.img + 'From files</button></div>') +
+    '<span class="hint">Copy a pay-in / withdrawal screenshot and press Ctrl+V, or pick the file.</span>' +
     (S.sheet.readNote ? '<div class="note' + (S.sheet.readOk ? ' ok' : ' warn') + '"><span>' + esc(S.sheet.readNote) + '</span></div>' : '') +
     '<div class="seg"><button type="button" class="tab' + (mode === 'add' ? ' on' : '') + '" data-act="fmode" data-v="add">Add funds</button><button type="button" class="tab' + (mode === 'wd' ? ' on' : '') + '" data-act="fmode" data-v="wd">Withdraw</button></div>' +
     '<label class="f">Amount (₹)<input class="in mono" id="f_amt" inputmode="decimal" placeholder="0" style="font-size:18px;height:50px" value="' + esc(S.sheet.amt || '') + '"></label>' +
@@ -1056,6 +1064,8 @@ document.addEventListener('click', function (e) {
     case 'eye': var pw = $('l_pw'); var showing = pw.type === 'text'; pw.type = showing ? 'password' : 'text'; el.setAttribute('aria-label', showing ? 'Show password' : 'Hide password'); el.innerHTML = showing ? ICON.eye : ICON.eyeOff; pw.focus(); break;
     case 'pickSS': $('fileSS').value = ''; $('fileSS').click(); break;
     case 'pickPDF': $('filePDF').value = ''; $('filePDF').click(); break;
+    case 'pasteSS': pasteFromClipboard('trade'); break;
+    case 'pasteFunds': pasteFromClipboard('funds'); break;
     case 'tt': S.openTrade = S.openTrade === id ? null : id; renderSheet(); break;
     case 'edit': S.sheet = { type: 'edit', id: id, back: S.sheet.date }; renderSheet(); break;
     case 'del': S.sheet = { type: 'confirmDel', id: id, back: S.sheet.date }; renderSheet(); break;
@@ -1090,6 +1100,51 @@ document.addEventListener('input', onField);
 document.addEventListener('change', function (e) {
   onField(e);
   if (e.target.id === 'c_date' && S.check) renderSheet();
+});
+/* ---- paste (Ctrl+V / Paste button) and drag & drop ---- */
+function handleIncomingFile(f, target) {
+  if (!f || !S.session) return false;
+  var isImg = /^image\//.test(f.type), isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name || '');
+  if (!isImg && !isPdf) { toast('That isn\'t a screenshot or PDF.'); return false; }
+  if (S.check) { toast('Finish or cancel the current check first.'); return false; }
+  var fundsOpen = S.sheet && S.sheet.type === 'funds';
+  if ((target === 'funds' || fundsOpen) && isImg) { if (!fundsOpen) openSheet({ type: 'funds', mode: 'add' }); readFundsSS(f); return true; }
+  if (target === 'funds' && isPdf) { toast('For funds, paste a screenshot (not a PDF).'); return false; }
+  if (!f.name) { try { f = new File([f], 'pasted-' + Date.now() + (isPdf ? '.pdf' : '.png'), { type: f.type }); } catch (e) { } }
+  startCheck(isPdf ? 'pdf' : 'ss', f); return true;
+}
+async function pasteFromClipboard(target) {
+  if (!navigator.clipboard || !navigator.clipboard.read) { toast('Press Ctrl+V to paste (or long-press → Paste on phone).'); return; }
+  try {
+    var items = await navigator.clipboard.read();
+    for (var i = 0; i < items.length; i++) {
+      var type = items[i].types.find(function (t) { return /^image\//.test(t); });
+      if (type) { var blob = await items[i].getType(type); handleIncomingFile(new File([blob], 'pasted-' + Date.now() + '.png', { type: type }), target); return; }
+    }
+    toast('No screenshot copied yet — copy one first, then tap Paste.');
+  } catch (e) {
+    toast('Allow clipboard access, or press Ctrl+V instead.');
+  }
+}
+document.addEventListener('paste', function (e) {
+  var t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) {
+    var hasFile = e.clipboardData && Array.prototype.some.call(e.clipboardData.items || [], function (it) { return it.kind === 'file'; });
+    if (!hasFile) return;
+  }
+  var items = (e.clipboardData && e.clipboardData.items) || [];
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].kind === 'file') {
+      var f = items[i].getAsFile();
+      if (f) { e.preventDefault(); if (S.sheet && S.sheet.type === 'add') { S.sheet = null; $('overlay').innerHTML = ''; } handleIncomingFile(f); return; }
+    }
+  }
+});
+document.addEventListener('dragover', function (e) { if (S.session && e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+document.addEventListener('drop', function (e) {
+  if (!S.session || !e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+  e.preventDefault(); if (S.sheet && S.sheet.type === 'add') { S.sheet = null; $('overlay').innerHTML = ''; }
+  handleIncomingFile(e.dataTransfer.files[0]);
 });
 $('fileSS').addEventListener('change', function () { var f = this.files && this.files[0]; if (f) startCheck('ss', f); });
 $('fileFunds').addEventListener('change', function () { var f = this.files && this.files[0]; if (f && S.sheet && S.sheet.type === 'funds') readFundsSS(f); });
