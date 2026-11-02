@@ -175,6 +175,48 @@ select.in{padding-right:4px}
 .login h1{margin:0;font-size:28px;letter-spacing:-.02em}
 .err{color:var(--red);font-size:13px;font-weight:500}
 
+/* ---- small screens: short amounts; bigger screens: full amounts ---- */
+.cell .af,.cell .n{display:none}
+/* ---- tablets / small laptops ---- */
+@media (min-width:600px){
+  .wrap{max-width:720px}
+  .cell{height:84px;padding:9px 10px}
+  .cell .d{font-size:14px}
+  .cell .a{font-size:14px}
+  .cell .as{display:none} .cell .af{display:inline}
+  .cell .n{display:block;font-size:11px;font-weight:500;opacity:.8}
+  .row5,.cal{gap:7px}
+  .fab{right:max(24px,calc((100vw - 720px)/2 + 16px))}
+  .menu{right:max(24px,calc((100vw - 720px)/2 + 16px))}
+  .ov{justify-content:center;align-items:center;padding:24px}
+  .ov .bd{position:absolute;inset:0}
+  .sheet{position:relative;border-radius:20px;max-width:560px;max-height:86vh;padding-bottom:24px}
+  .grab{display:none}
+  .full .in-wrap{max-width:760px}
+}
+/* ---- laptops (13" and up): two columns, calendar fills the screen ---- */
+@media (min-width:1000px){
+  .wrap{max-width:1440px;padding:24px 32px 48px;display:grid;grid-template-columns:minmax(330px,390px) minmax(0,1fr);grid-template-areas:"l r" "l2 r";grid-template-rows:auto 1fr;column-gap:28px;align-items:start}
+  .colL{grid-area:l} .colL2{grid-area:l2;padding-bottom:90px}
+  .colR{grid-area:r;background:#fff;border:1px solid var(--line);border-radius:20px;padding:6px 22px 20px;position:sticky;top:24px}
+  .colL .top,.colL .chips,.colL .subs,.colL2 .foot{padding-left:0;padding-right:0;margin-left:0;margin-right:0}
+  .colL .banner,.colL .money,.colL .setcap,.colL2 .bw,.colL2 .stats{margin-left:0;margin-right:0;width:100%}
+  .colR .cal,.colR .legend{padding-left:0;padding-right:0}
+  .mnav{padding:14px 0 14px}
+  .mnav .mt{font-size:20px} .mnav .ms{font-size:14px}
+  .dow{font-size:13px}
+  .cell{height:clamp(84px,calc((100vh - 250px) / 6),132px);padding:10px 12px;border-radius:12px}
+  .cell .d{font-size:15px}
+  .cell .a{font-size:17px;letter-spacing:-.02em}
+  .cell .n{font-size:12px}
+  .cell .dot{top:10px;right:10px;width:7px;height:7px}
+  .row5,.cal{gap:8px}
+  .fab{right:32px;bottom:32px}
+  .menu{right:32px;bottom:104px}
+}
+@media (min-width:1400px){
+  .cell .a{font-size:19px}
+}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom));z-index:60;display:none;align-items:center;gap:14px;background:var(--ink);color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100vw - 32px)}
 #toast button{border:0;background:transparent;color:#8FD3AE;font-weight:700;font-size:14px;padding:4px}
 </style>
@@ -403,7 +445,7 @@ function render() {
   var invested = start + added;
   var base = start + fundsTot, present = base + pnlTot;
 
-  var h = '<div class="wrap">';
+  var h = '<div class="wrap"><div class="colL">';
   h += '<div class="top"><div class="tabs" role="tablist">' + PEOPLE.map(function (p) {
     return '<button type="button" role="tab" aria-selected="' + (p === S.who) + '" class="tab' + (p === S.who ? ' on' : '') + '" data-act="who" data-v="' + esc(p) + '">' + esc(p) + '</button>';
   }).join('') + '</div><button type="button" class="iconbtn" data-act="settings" aria-label="Settings">' + ICON.gear + '</button></div>';
@@ -455,7 +497,8 @@ function render() {
         if (!lo || v.net < lo.v) lo = { d: key, v: v.net };
         if (v.approx) anyApprox = true;
         cls = (S.sheet && S.sheet.type === 'day' && S.sheet.date === key) ? 'sel' : '';
-        inner = (v.approx ? '<span class="dot"></span>' : '') + label + '<span class="a">' + short(v.net) + '</span>';
+        inner = (v.approx ? '<span class="dot"></span>' : '') + label + '<span class="a"><span class="as">' + short(v.net) + '</span><span class="af">' + money(v.net) + '</span></span>' +
+          '<span class="n">' + v.list.length + ' trade' + (v.list.length === 1 ? '' : 's') + '</span>';
         act = 'day'; aria = fmtDay(key) + ', ' + (v.net >= 0 ? 'profit ' : 'loss ') + inr(v.net) + (v.approx ? ', approximate' : '');
         cls += '" style="background:' + t[0] + ';color:' + t[1];
       }
@@ -470,6 +513,7 @@ function render() {
   }
   var isCur = (y === now0.getFullYear() && m === now0.getMonth()) || (y > now0.getFullYear() || (y === now0.getFullYear() && m > now0.getMonth()));
   var lbl = S.top === 'all' ? 'Month ' : S.top === 'swing' ? 'Swing ' : (S.sub === 'all' ? 'Day trading ' : SUB_LABEL[S.sub] + ' ');
+  h += '</div><div class="colR">';
   h += '<div class="mnav"><button type="button" class="navb" data-act="prev" aria-label="Previous month">' + ICON.left + '</button>' +
     '<div class="mid"><span class="mt">' + MONTH[m] + ' ' + y + '</span><span class="ms ' + col(monthTot) + '">' + lbl + money(monthTot) + '</span></div>' +
     '<button type="button" class="navb" data-act="next" aria-label="Next month"' + (isCur ? ' disabled' : '') + '>' + ICON.right + '</button></div>';
@@ -477,6 +521,7 @@ function render() {
 
   h += '<div class="legend"><span><i class="sw" style="background:#0E8A4F"></i>Profit</span><span><i class="sw" style="background:#C8372D"></i>Loss</span>' +
     '<span><i class="sw" style="background:#ECECE8"></i>No trades</span><span><i class="sw" style="width:6px;height:6px;border-radius:3px;background:#16181D"></i>Approx</span></div>';
+  h += '</div><div class="colL2">';
 
   function bwCard(e, pos) {
     var ok = e && (pos ? Math.round(e.v) > 0 : Math.round(e.v) < 0);
@@ -491,7 +536,7 @@ function render() {
     '<div><div class="l">Win rate</div><div class="v">' + ((gN + rN) ? Math.round(gN / (gN + rN) * 100) + '%' : '—') + '</div></div></div>';
   if (anyApprox) h += '<span class="foot">Approx = added from a screenshot, charges not included yet. Becomes exact when that week\'s contract note PDF is added.</span>';
   if (S.lastSync) h += '<span class="foot">Synced ' + new Date(S.lastSync).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) + (S.syncing ? ' · syncing…' : '') + '</span>';
-  h += '</div>';
+  h += '</div></div>';
   var addOpen = S.sheet && S.sheet.type === 'add';
   h += '<button type="button" class="fab' + (addOpen ? ' open' : '') + '" data-act="' + (addOpen ? 'close' : 'add') + '" aria-label="' + (addOpen ? 'Close add menu' : 'Add trades') + '">' + ICON.plus + '</button>';
   $('main').innerHTML = h;
