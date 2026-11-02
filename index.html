@@ -765,7 +765,7 @@ function checkScreen() {
     (c.status === 'reading' ? 'Reading…' : c.status === 'error' ? 'Could not read automatically' : c.rows.length + ' trade' + (c.rows.length === 1 ? '' : 's') + ' found' + (c.flagged ? ' · ' + c.flagged + ' need' + (c.flagged === 1 ? 's' : '') + ' a check' : '')) + '</div></div></div>';
 
   if (c.status === 'reading') {
-    h += '<div class="center"><div class="spin"></div>Reading your ' + (c.kind === 'ss' ? 'screenshot' : 'PDF') + '… this takes a few seconds.</div>';
+    h += '<div class="center"><div class="spin"></div>Reading your ' + (c.kind === 'ss' ? 'screenshot' : 'PDF') + '… usually under 10 seconds.<span id="aiProg" class="hint">' + esc(c.progress || '') + '</span></div>';
   } else {
     if (c.status === 'error') h += '<div class="note warn"><span>' + esc(c.error) + ' You can type the trades below instead.</span></div>';
     if (c.notes) h += '<div class="note"><span class="nd"></span><span>' + esc(c.notes) + '</span></div>';
@@ -883,7 +883,9 @@ async function pdfText(file) {
     }
   }
 }
-var DEFAULT_MODEL = 'gemini-3.8-flash';
+var DEFAULT_MODEL = 'gemini-3.6-flash';
+var MODEL_ORDER = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+function aiProgress(msg) { if (S.check && S.check.status === 'reading') { S.check.progress = msg; var el = document.getElementById('aiProg'); if (el) el.textContent = msg; } }
 var AI_PROMPT = [
   'You read Indian stock-market broker documents (NSE/BSE) for a personal P&L calendar.',
   'Inputs are either a screenshot from a broker app (Kotak Neo, Zerodha Kite, etc.: orders, trade book, positions or P&L screens)',
@@ -948,15 +950,21 @@ async function geminiJSON(prompt, parts) {
     generationConfig: { temperature: 0, responseMimeType: 'application/json' }
   });
   // Try the chosen model first, then fall back automatically when one is busy or missing.
-  var models = [S.ai.model || DEFAULT_MODEL, 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-flash-latest']
-    .filter(function (m, i, a) { return m && a.indexOf(m) === i; });
+  var pref = S.ai.model && S.ai.model !== 'gemini-3.8-flash' ? S.ai.model : null; // old default → use the reliable order
+  var models = [pref].concat(MODEL_ORDER).filter(function (m, i, a) { return m && a.indexOf(m) === i; });
   var lastMsg = '';
   for (var mi = 0; mi < models.length; mi++) {
-    var res, j = null;
+    var res, j = null, ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 25000);
+    aiProgress('Reading with ' + models[mi].replace('gemini-', 'Gemini ').replace(/-/g, ' ') + (mi ? ' (previous one was busy)…' : '…'));
     try {
       res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(models[mi]) + ':generateContent?key=' + encodeURIComponent(key), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body });
-    } catch (e) { throw new Error('No internet — could not reach Gemini.'); }
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, signal: ctl.signal });
+    } catch (e) {
+      clearTimeout(timer);
+      if (e && e.name === 'AbortError') { lastMsg = models[mi] + ' took too long'; continue; }
+      throw new Error('No internet — could not reach Gemini.');
+    }
+    clearTimeout(timer);
     try { j = await res.json(); } catch (e) { }
     if (!res.ok) {
       var msg = j && j.error && j.error.message || ('AI request failed (' + res.status + ')');
