@@ -1,0 +1,1053 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F7F7F5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="P&amp;L Calendar">
+<title>P&amp;L Calendar</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F7F5; --card:#FFFFFF; --line:#E4E4E0; --line2:#D6D6D1; --soft:#ECECE8; --soft2:#F1F1EE;
+  --ink:#16181D; --ink2:#3A3F48; --muted:#5B606B; --faint:#8A909B;
+  --green:#0B7A43; --red:#B3261E;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,sans-serif}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+.mono{font-family:var(--mono)}
+.g{color:var(--green)} .r{color:var(--red)} .mu{color:var(--muted)}
+.wrap{max-width:480px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 0 120px}
+
+/* top */
+.top{display:flex;gap:8px;padding:4px 16px 10px;align-items:center}
+.tabs{flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;background:var(--soft);border-radius:12px;padding:4px}
+.tab{height:42px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600;font-size:14px}
+.tab.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.iconbtn{width:44px;height:44px;border:0;border-radius:12px;background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--ink);flex-shrink:0}
+.banner{margin:0 16px 10px;padding:9px 12px;border-radius:10px;background:#FFF4E5;color:#7A4100;font-size:12px;line-height:1.4}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px}
+.cap{margin:0 16px;padding:14px 16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.cap .l{font-size:11px;color:var(--muted);font-weight:500}
+.cap .v{font-family:var(--mono);font-size:14px;font-weight:600;margin-top:3px;word-break:break-all}
+.cap .p{font-family:var(--mono);font-size:11px;font-weight:600;margin-top:1px}
+.capnote{display:block;margin:6px 16px 0;font-size:12px;color:var(--muted)}
+.setcap{margin:0 16px;width:calc(100% - 32px);height:52px;border:1.5px dashed var(--faint);border-radius:16px;background:#fff;font-weight:600;font-size:14px}
+
+.chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:12px 16px 2px}
+.chip{height:40px;border-radius:20px;border:1px solid #E0E0DB;background:#fff;color:var(--ink2);font-weight:600;font-size:13px}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.subs{display:flex;gap:6px;padding:8px 16px 0;overflow-x:auto;scrollbar-width:none}
+.subs::-webkit-scrollbar{display:none}
+.sub{flex-shrink:0;height:34px;padding:0 12px;border-radius:8px;border:1px solid #E0E0DB;background:transparent;color:var(--ink2);font-weight:600;font-size:12px}
+.sub.on{background:#EAF0FF;color:#2948A8;border-color:#9DB2EE}
+
+.mnav{display:flex;align-items:center;justify-content:space-between;padding:16px 8px 12px}
+.mnav .navb{width:44px;height:44px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.mnav .navb:disabled{color:#C3C6CC;cursor:default}
+.mnav .mid{display:flex;flex-direction:column;align-items:center;gap:1px}
+.mnav .mt{font-size:15px;font-weight:600}
+.mnav .ms{font-family:var(--mono);font-size:12px;font-weight:600}
+
+.cal{padding:0 16px;display:flex;flex-direction:column;gap:5px}
+.row5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.dow{font-size:12px;font-weight:600;color:var(--muted);text-align:center;padding-bottom:2px}
+.cell{position:relative;height:60px;width:100%;border:0;border-radius:10px;padding:7px 8px 8px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-align:left}
+.cell .d{font-size:13px;font-weight:600}
+.cell .a{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:-.03em;white-space:nowrap}
+.cell.out{background:transparent;color:#C3C6CC;cursor:default}
+.cell.none{background:var(--soft);color:var(--muted)}
+.cell.future{background:var(--soft2);color:#A3A8B1;cursor:default}
+.cell.today{background:#fff;color:var(--ink);border:1.5px dashed var(--faint)}
+.cell.sel{outline:2px solid var(--ink);outline-offset:1px}
+.cell .dot{position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:3px;background:currentColor}
+
+.legend{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:14px;padding:12px 16px 0;font-size:11px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:5px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+.bw{margin:16px 16px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.bwc{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left}
+.bwc .h{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+.bwc .amt{font-family:var(--mono);font-size:18px;font-weight:600}
+.bwc .dt{font-size:12px;color:var(--muted)}
+.stats{margin:8px 16px 0;padding:12px 14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stats .l{font-size:11px;color:var(--muted)} .stats .v{font-size:16px;font-weight:700;margin-top:3px}
+.foot{display:block;margin:10px 16px 0;font-size:11px;color:var(--muted);line-height:1.4}
+
+.fab{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));right:max(16px,calc((100vw - 480px)/2 + 16px));width:60px;height:60px;border-radius:18px;border:0;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.22);z-index:20;transition:transform .15s}
+.fab.open{transform:rotate(45deg)}
+.menu{position:fixed;bottom:calc(92px + env(safe-area-inset-bottom));right:max(16px,calc((100vw - 480px)/2 + 16px));display:flex;flex-direction:column;gap:8px;align-items:flex-end;z-index:21}
+.mi{height:50px;padding:0 16px;border-radius:14px;border:1px solid #E0E0DB;background:#fff;font-weight:600;font-size:14px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+
+/* overlays */
+.ov{position:fixed;inset:0;background:rgba(22,24,29,.35);z-index:30;display:flex;flex-direction:column;justify-content:flex-end}
+.ov.clear{background:rgba(22,24,29,.12)}
+.ov .bd{flex:1;border:0;background:transparent}
+.sheet{width:100%;max-width:480px;margin:0 auto;background:#fff;border-radius:22px 22px 0 0;padding:10px 16px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;max-height:88vh;overflow-y:auto}
+.grab{width:40px;height:4px;border-radius:2px;background:#D6D6D1;align-self:center}
+.sh{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.sh .t{font-size:18px;font-weight:700}
+.sh .s{font-size:13px;color:var(--muted);font-weight:500}
+.big{font-family:var(--mono);font-size:30px;font-weight:600;letter-spacing:-.02em}
+.hint{font-size:12px;color:var(--muted)}
+.note{display:flex;gap:8px;align-items:flex-start;background:#F4F4F1;border-radius:12px;padding:10px 12px;font-size:12px;color:var(--ink2);line-height:1.4}
+.note .nd{width:6px;height:6px;border-radius:3px;background:var(--ink);margin-top:5px;flex-shrink:0}
+.note.ok{background:#EAF7EF;color:#064D2A}
+.note.warn{background:#FFF4E5;color:#7A4100}
+.grp{display:flex;flex-direction:column;gap:6px}
+.gh{display:flex;align-items:center;justify-content:space-between}
+.tag{font-size:12px;font-weight:700;padding:4px 10px;border-radius:7px}
+.tag.day{background:#EAF0FF;color:#2948A8} .tag.swing{background:#F3ECFF;color:#5B2DA6}
+.tr{border:1px solid var(--soft);border-radius:12px;display:flex;flex-direction:column}
+.tr.open{border-color:var(--ink)}
+.trb{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:0;background:transparent;text-align:left}
+.trb .sym{font-size:14px;font-weight:600}
+.trb .meta{font-size:12px;color:var(--muted);margin-top:2px}
+.trb .det{font-family:var(--mono);font-size:12px;color:var(--ink2);margin-top:2px}
+.trb .pl{font-family:var(--mono);font-size:14px;font-weight:600;white-space:nowrap}
+.tra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 12px 12px}
+.btn{height:50px;border-radius:14px;border:0;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 14px}
+.btn.sm{height:44px;border-radius:10px;font-size:14px;font-weight:600}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.dark:disabled{opacity:.5}
+.btn.ghost{background:#fff;border:1px solid var(--line2);color:var(--ink)}
+.btn.danger{background:#FFF6F5;border:1px solid #F0C4BF;color:#A1231B}
+.btn.dangerfill{background:#B3261E;color:#fff}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px}
+.half{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--ink2);min-width:0}
+.in{height:44px;width:100%;min-width:0;border:1px solid var(--line2);border-radius:10px;padding:0 10px;font-size:15px;background:#fff}
+.in.mono{font-family:var(--mono);font-size:14px}
+.in.warn{border:2px solid #D97706;background:#FFF8EB}
+select.in{padding-right:4px}
+.seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;background:var(--soft);border-radius:12px;padding:4px}
+.flist{display:flex;flex-direction:column;gap:6px}
+.frow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--soft);border-radius:12px;font-size:13px}
+.xbtn{width:36px;height:36px;border:0;border-radius:10px;background:var(--soft2);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0}
+
+/* full screen check */
+.full{position:fixed;inset:0;background:var(--bg);z-index:40;display:flex;flex-direction:column}
+.full .in-wrap{width:100%;max-width:480px;margin:0 auto;display:flex;flex-direction:column;flex:1;min-height:0}
+.fhead{display:flex;align-items:center;gap:4px;padding:calc(12px + env(safe-area-inset-top)) 8px 6px}
+.fbody{flex:1;overflow-y:auto;padding:8px 16px 20px;display:flex;flex-direction:column;gap:10px}
+.ffoot{padding:12px 16px calc(16px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line)}
+.file{display:flex;align-items:center;gap:10px;padding:12px}
+.thumb{width:48px;height:60px;border-radius:8px;background:var(--soft);object-fit:cover;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.crow{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.crow.flag{border-color:#F2C27B}
+.crow.dup{opacity:.55}
+.crow .top1{display:flex;gap:6px;align-items:flex-end}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.crow .pl{font-family:var(--mono);font-weight:600;font-size:14px}
+.warnt{font-size:12px;font-weight:600;color:#8A4B00}
+.spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--soft);border-top-color:var(--ink);animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.center{display:flex;flex-direction:column;align-items:center;gap:12px;padding:40px 0;color:var(--muted);font-size:14px;text-align:center}
+
+/* login */
+.login{max-width:400px;margin:0 auto;padding:calc(60px + env(safe-area-inset-top)) 20px 40px;display:flex;flex-direction:column;gap:14px}
+.login h1{margin:0;font-size:28px;letter-spacing:-.02em}
+.err{color:var(--red);font-size:13px;font-weight:500}
+
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom));z-index:60;display:none;align-items:center;gap:14px;background:var(--ink);color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100vw - 32px)}
+#toast button{border:0;background:transparent;color:#8FD3AE;font-weight:700;font-size:14px;padding:4px}
+</style>
+</head>
+<body>
+<div id="main"></div>
+<div id="overlay"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="fileSS" accept="image/*" hidden>
+<input type="file" id="filePDF" accept="application/pdf,.pdf" hidden>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+'use strict';
+
+/* ---------------- setup ---------------- */
+var CFG = window.APP_CONFIG || {};
+var PEOPLE = ['Ranjith', 'Chandana'];
+var SHADE_MID = CFG.SHADE_MID || 1000, SHADE_HIGH = CFG.SHADE_HIGH || 2500;
+var CONN_KEY = 'pnlcal.conn';
+// Connection details come from (1) a setup link, (2) this phone, or (3) config.js
+(function readSetupLink() {
+  var m = location.hash.match(/setup=([^&]+)/);
+  if (!m) return;
+  try {
+    var c = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));
+    if (c && c.u && c.k) localStorage.setItem(CONN_KEY, JSON.stringify({ u: c.u, k: c.k }));
+  } catch (e) { }
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }
+})();
+function getConn() {
+  var c = null;
+  try { c = JSON.parse(localStorage.getItem(CONN_KEY) || 'null'); } catch (e) { }
+  if (c && c.u && c.k) return c;
+  if (CFG.SUPABASE_URL && CFG.SUPABASE_URL.indexOf('YOUR-PROJECT') < 0 && CFG.SUPABASE_ANON_KEY && CFG.SUPABASE_ANON_KEY.indexOf('YOUR-') < 0)
+    return { u: CFG.SUPABASE_URL, k: CFG.SUPABASE_ANON_KEY };
+  return null;
+}
+var CONN = getConn();
+var sb = (CONN && window.supabase) ? window.supabase.createClient(CONN.u, CONN.k, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+}) : null;
+if (window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+var SUBS = [['all', 'All'], ['nifty', 'Nifty'], ['sensex', 'Sensex'], ['banknifty', 'BankNifty'], ['stockopt', 'Stock options'], ['stocks', 'Stocks']];
+var SUB_LABEL = { nifty: 'Nifty', sensex: 'Sensex', banknifty: 'BankNifty', stockopt: 'Stock options', stocks: 'Stocks', other: 'Other' };
+var TYPES = [['day:nifty', 'Day · Nifty'], ['day:sensex', 'Day · Sensex'], ['day:banknifty', 'Day · BankNifty'],
+  ['day:stockopt', 'Day · Stock options'], ['day:stocks', 'Day · Stocks'], ['day:other', 'Day · Other'], ['swing:other', 'Swing']];
+var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+var MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+var now0 = new Date();
+var S = {
+  session: null, email: '', who: PEOPLE[0], top: 'all', sub: 'all',
+  y: now0.getFullYear(), m: now0.getMonth(),
+  trades: [], funds: [], settings: {}, uploads: {}, ai: { key: '', model: '' },
+  loaded: false, syncing: false, lastSync: null, online: navigator.onLine,
+  sheet: null, openTrade: null, check: null, started: false
+};
+
+/* ---------------- utils ---------------- */
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function todayStr() { return ymd(new Date()); }
+function parseD(s) { var p = String(s).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+function validDate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')); }
+function fmtDay(s) { var d = parseD(s); return DOW[d.getDay()] + ', ' + d.getDate() + ' ' + MON[d.getMonth()]; }
+function num(v) { if (v === '' || v == null) return 0; var n = Number(String(v).replace(/[,₹\s]/g, '')); return isFinite(n) ? n : 0; }
+function numOrNull(v) { if (v === '' || v == null) return null; var n = Number(String(v).replace(/[,₹\s]/g, '')); return isFinite(n) ? n : null; }
+function r2(v) { return Math.round(v * 100) / 100; }
+function sgn(v) { v = Math.round(v); return v > 0 ? '+' : v < 0 ? '−' : ''; }
+function inr(v) { return '₹' + Math.abs(Math.round(v)).toLocaleString('en-IN'); }
+function money(v) { return sgn(v) + inr(v); }
+function short(v) {
+  var a = Math.abs(v), s;
+  if (a >= 100000) s = (a / 100000).toFixed(a >= 1000000 ? 0 : 1) + 'L';
+  else if (a >= 1000) s = (a / 1000).toFixed(a >= 10000 ? 0 : 1) + 'k';
+  else s = String(Math.round(a));
+  return sgn(v) + s;
+}
+function px(v) { return v == null || v === '' ? '' : Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function net(t) { return num(t.pnl) - num(t.charges); }
+function col(v) { return Math.round(v) > 0 ? 'g' : Math.round(v) < 0 ? 'r' : 'mu'; }
+function lsGet(k) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+function typeVal(t) { return t.category === 'swing' ? 'swing:other' : 'day:' + (SUB_LABEL[t.sub] ? t.sub : 'other'); }
+function typeLabel(t) { return t.category === 'swing' ? 'Swing' : (SUB_LABEL[t.sub] || 'Other'); }
+
+var ICON = {
+  gear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>',
+  left: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>',
+  right: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>',
+  plus: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>',
+  x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>',
+  img: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 16l-5-5-8 8"></path></svg>',
+  pdf: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"></path><path d="M9 13h6M9 17h6"></path></svg>',
+  swap: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"></path></svg>',
+  up: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l6-6 4 4 6-8"></path></svg>',
+  down: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7l6 6 4-4 6 8"></path></svg>',
+  edit: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg>',
+  trash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>',
+  check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M5 12l5 5 9-10"></path></svg>'
+};
+
+/* ---------------- toast ---------------- */
+var toastTimer = null;
+function toast(msg, actionLabel, action, ms) {
+  var el = $('toast');
+  el.innerHTML = '<span>' + esc(msg) + '</span>' + (actionLabel ? '<button type="button" id="toastBtn">' + esc(actionLabel) + '</button>' : '');
+  el.style.display = 'flex';
+  if (actionLabel) $('toastBtn').onclick = function () { el.style.display = 'none'; action(); };
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el.style.display = 'none'; }, ms || (actionLabel ? 6000 : 3000));
+}
+
+/* ---------------- cache (data stays visible after closing the app) ---------------- */
+var CACHE_KEY = 'pnlcal.cache.v1';
+function saveCache() { lsSet(CACHE_KEY, { trades: S.trades, funds: S.funds, settings: S.settings, uploads: S.uploads, ai: S.ai, at: Date.now() }); }
+function loadCache() {
+  var c = lsGet(CACHE_KEY);
+  if (!c) return;
+  S.trades = c.trades || []; S.funds = c.funds || []; S.settings = c.settings || {}; S.uploads = c.uploads || {}; S.ai = c.ai || S.ai;
+  S.lastSync = c.at || null; S.loaded = true;
+}
+
+/* ---------------- data sync ---------------- */
+async function fetchAll(makeQuery) {
+  var out = [], from = 0;
+  for (;;) {
+    var res = await makeQuery().range(from, from + 999);
+    if (res.error) throw res.error;
+    out = out.concat(res.data || []);
+    if (!res.data || res.data.length < 1000) break;
+    from += 1000;
+  }
+  return out;
+}
+async function loadAll() {
+  if (!sb || !S.session) return;
+  S.syncing = true;
+  try {
+    var r = await Promise.all([
+      fetchAll(function () { return sb.from('trades').select('*').is('deleted_at', null).order('trade_date').order('created_at'); }),
+      fetchAll(function () { return sb.from('funds').select('*').order('fund_date'); }),
+      fetchAll(function () { return sb.from('settings').select('*'); }),
+      fetchAll(function () { return sb.from('uploads').select('id,kind,path,file_name,profile'); }),
+      fetchAll(function () { return sb.from('app_config').select('*'); })
+    ]);
+    var ac = r[4][0] || {};
+    S.ai = { key: ac.gemini_key || '', model: ac.gemini_model || '' };
+    S.trades = r[0]; S.funds = r[1];
+    S.settings = {}; r[2].forEach(function (s) { S.settings[s.profile] = s; });
+    S.uploads = {}; r[3].forEach(function (u) { S.uploads[u.id] = u; });
+    S.loaded = true; S.lastSync = Date.now(); S.online = true;
+    saveCache();
+  } catch (e) {
+    S.online = navigator.onLine;
+    if (navigator.onLine) toast('Could not sync: ' + (e.message || 'error'));
+  }
+  S.syncing = false;
+  render();
+  if (S.sheet && S.sheet.type !== 'check' && S.sheet.type !== 'add') renderSheet();
+}
+var reloadTimer = null;
+function queueReload() { clearTimeout(reloadTimer); reloadTimer = setTimeout(loadAll, 350); }
+function subscribe() {
+  if (S.chan || !sb) return;
+  S.chan = sb.channel('pnl-sync')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'trades' }, queueReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'funds' }, queueReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, queueReload)
+    .subscribe();
+}
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && S.session) loadAll(); });
+window.addEventListener('online', function () { S.online = true; if (S.session) loadAll(); });
+window.addEventListener('offline', function () { S.online = false; render(); });
+
+/* ---------------- calculations ---------------- */
+function passes(t) {
+  if (S.top === 'all') return true;
+  if (t.category !== S.top) return false;
+  if (S.top === 'day' && S.sub !== 'all') return t.sub === S.sub;
+  return true;
+}
+function mine() { return S.trades.filter(function (t) { return t.profile === S.who; }); }
+function dayMap(list) {
+  var m = {};
+  list.forEach(function (t) {
+    var k = t.trade_date;
+    if (!m[k]) m[k] = { net: 0, approx: false, list: [] };
+    m[k].net += net(t); if (t.approx) m[k].approx = true; m[k].list.push(t);
+  });
+  return m;
+}
+function tone(v) {
+  var a = Math.abs(v);
+  if (v >= 0) return a >= SHADE_HIGH ? ['#0E8A4F', '#FFFFFF'] : a >= SHADE_MID ? ['#A8DDBE', '#064D2A'] : ['#E3F4EA', '#0B6B3B'];
+  return a >= SHADE_HIGH ? ['#C8372D', '#FFFFFF'] : a >= SHADE_MID ? ['#F4B9B1', '#7A140E'] : ['#FBE6E3', '#A1231B'];
+}
+
+/* ---------------- main screen ---------------- */
+function render() {
+  if (!S.session) return;
+  var all = mine(), vis = all.filter(passes);
+  var dm = dayMap(vis), dmAll = dayMap(all);
+  var today = todayStr();
+
+  var st = S.settings[S.who];
+  var start = st ? num(st.start_capital) : 0;
+  var fundsList = S.funds.filter(function (f) { return f.profile === S.who; });
+  var fundsTot = fundsList.reduce(function (a, f) { return a + num(f.amount); }, 0);
+  var pnlTot = all.reduce(function (a, t) { return a + net(t); }, 0);
+  var base = start + fundsTot, present = base + pnlTot;
+
+  var h = '<div class="wrap">';
+  h += '<div class="top"><div class="tabs" role="tablist">' + PEOPLE.map(function (p) {
+    return '<button type="button" role="tab" aria-selected="' + (p === S.who) + '" class="tab' + (p === S.who ? ' on' : '') + '" data-act="who" data-v="' + esc(p) + '">' + esc(p) + '</button>';
+  }).join('') + '</div><button type="button" class="iconbtn" data-act="settings" aria-label="Settings">' + ICON.gear + '</button></div>';
+
+  if (!S.online) h += '<div class="banner">You\'re offline. Showing your saved data — new changes need internet.</div>';
+  if (S.lastSync && !Object.keys(S.settings).length) h += '<div class="banner">This login can\'t see any data. Only the first two logins created in Supabase are allowed — see README "If something goes wrong".</div>';
+
+  if (S.lastSync && !S.ai.key) h += '<button type="button" class="banner" data-act="settings" style="display:block;width:calc(100% - 32px);border:0;text-align:left">One step left: tap here and paste your Gemini key so the app can read screenshots and PDFs.</button>';
+  if (!start && !fundsTot) {
+    h += '<button type="button" class="setcap" data-act="settings">+ Set ' + esc(S.who) + '\'s starting capital</button>';
+  } else {
+    h += '<div class="card cap">' +
+      '<div><div class="l">Starting capital</div><div class="v">' + inr(start) + '</div></div>' +
+      '<div><div class="l">Present capital</div><div class="v">' + inr(present) + '</div></div>' +
+      '<div><div class="l">Change</div><div class="v ' + col(pnlTot) + '">' + money(pnlTot) + '</div>' +
+      '<div class="p ' + col(pnlTot) + '">' + (base > 0 ? sgn(pnlTot) + (Math.abs(pnlTot) / base * 100).toFixed(2) + '%' : '') + '</div></div></div>';
+    if (Math.round(fundsTot) !== 0) h += '<span class="capnote">Includes ' + money(fundsTot) + ' funds ' + (fundsTot > 0 ? 'added' : 'withdrawn') + ' (not counted as profit)</span>';
+  }
+
+  h += '<div class="chips">' + [['all', 'All'], ['day', 'Day trading'], ['swing', 'Swing']].map(function (c) {
+    return '<button type="button" class="chip' + (S.top === c[0] ? ' on' : '') + '" data-act="top" data-v="' + c[0] + '">' + c[1] + '</button>';
+  }).join('') + '</div>';
+  if (S.top === 'day') h += '<div class="subs">' + SUBS.map(function (c) {
+    return '<button type="button" class="sub' + (S.sub === c[0] ? ' on' : '') + '" data-act="sub" data-v="' + c[0] + '">' + c[1] + '</button>';
+  }).join('') + '</div>';
+
+  // month grid (Mon–Fri)
+  var y = S.y, m = S.m, last = new Date(y, m + 1, 0);
+  var d = new Date(y, m, 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  d.setDate(d.getDate() - (d.getDay() - 1));
+  var rows = [], monthTot = 0, hi = null, lo = null, gN = 0, rN = 0, anyApprox = false;
+  while (d <= last) {
+    var row = [];
+    for (var i = 0; i < 5; i++) {
+      var key = ymd(d), inM = d.getMonth() === m, v = dm[key], cls, inner, act = '', aria;
+      var label = '<span class="d">' + d.getDate() + '</span>';
+      if (!inM) { cls = 'out'; inner = label; aria = fmtDay(key); }
+      else if (v) {
+        var t = tone(v.net);
+        monthTot += v.net;
+        if (Math.round(v.net) > 0) gN++; else if (Math.round(v.net) < 0) rN++;
+        if (!hi || v.net > hi.v) hi = { d: key, v: v.net };
+        if (!lo || v.net < lo.v) lo = { d: key, v: v.net };
+        if (v.approx) anyApprox = true;
+        cls = (S.sheet && S.sheet.type === 'day' && S.sheet.date === key) ? 'sel' : '';
+        inner = (v.approx ? '<span class="dot"></span>' : '') + label + '<span class="a">' + short(v.net) + '</span>';
+        act = 'day'; aria = fmtDay(key) + ', ' + (v.net >= 0 ? 'profit ' : 'loss ') + inr(v.net) + (v.approx ? ', approximate' : '');
+        cls += '" style="background:' + t[0] + ';color:' + t[1];
+      }
+      else if (key === today) { cls = 'today'; inner = label + '<span class="a">+ Add</span>'; act = 'add'; aria = 'Today, add trades'; }
+      else if (key > today) { cls = 'future'; inner = label; aria = fmtDay(key); }
+      else { cls = 'none'; inner = label + '<span class="a">—</span>'; act = 'day'; aria = fmtDay(key) + (dmAll[key] ? ', no trades in this filter' : ', no trades'); }
+      row.push('<button type="button" class="cell ' + cls + '"' + (act ? ' data-act="' + act + '" data-date="' + key + '"' : ' tabindex="-1"') + ' aria-label="' + esc(aria) + '">' + inner + '</button>');
+      d.setDate(d.getDate() + 1);
+    }
+    d.setDate(d.getDate() + 2);
+    rows.push('<div class="row5">' + row.join('') + '</div>');
+  }
+  var isCur = (y === now0.getFullYear() && m === now0.getMonth()) || (y > now0.getFullYear() || (y === now0.getFullYear() && m > now0.getMonth()));
+  var lbl = S.top === 'all' ? 'Month ' : S.top === 'swing' ? 'Swing ' : (S.sub === 'all' ? 'Day trading ' : SUB_LABEL[S.sub] + ' ');
+  h += '<div class="mnav"><button type="button" class="navb" data-act="prev" aria-label="Previous month">' + ICON.left + '</button>' +
+    '<div class="mid"><span class="mt">' + MONTH[m] + ' ' + y + '</span><span class="ms ' + col(monthTot) + '">' + lbl + money(monthTot) + '</span></div>' +
+    '<button type="button" class="navb" data-act="next" aria-label="Next month"' + (isCur ? ' disabled' : '') + '>' + ICON.right + '</button></div>';
+  h += '<div class="cal"><div class="row5"><span class="dow">Mon</span><span class="dow">Tue</span><span class="dow">Wed</span><span class="dow">Thu</span><span class="dow">Fri</span></div>' + rows.join('') + '</div>';
+
+  h += '<div class="legend"><span><i class="sw" style="background:#0E8A4F"></i>Profit</span><span><i class="sw" style="background:#C8372D"></i>Loss</span>' +
+    '<span><i class="sw" style="background:#ECECE8"></i>No trades</span><span><i class="sw" style="width:6px;height:6px;border-radius:3px;background:#16181D"></i>Approx</span></div>';
+
+  function bwCard(e, pos) {
+    var ok = e && (pos ? Math.round(e.v) > 0 : Math.round(e.v) < 0);
+    return '<button type="button" class="bwc"' + (ok ? ' data-act="day" data-date="' + e.d + '"' : '') + '>' +
+      '<span class="h ' + (pos ? 'g' : 'r') + '">' + (pos ? ICON.up + 'Most profit day' : ICON.down + 'Most loss day') + '</span>' +
+      '<span class="amt ' + (ok ? (pos ? 'g' : 'r') : 'mu') + '">' + (ok ? money(e.v) : '—') + '</span>' +
+      '<span class="dt">' + (ok ? fmtDay(e.d) : (pos ? 'No profit day yet' : 'No loss day')) + '</span></button>';
+  }
+  h += '<div class="bw">' + bwCard(hi, true) + bwCard(lo, false) + '</div>';
+  h += '<div class="card stats"><div><div class="l">Green days</div><div class="v g">' + gN + '</div></div>' +
+    '<div><div class="l">Red days</div><div class="v r">' + rN + '</div></div>' +
+    '<div><div class="l">Win rate</div><div class="v">' + ((gN + rN) ? Math.round(gN / (gN + rN) * 100) + '%' : '—') + '</div></div></div>';
+  if (anyApprox) h += '<span class="foot">Approx = added from a screenshot, charges not included yet. Becomes exact when that week\'s contract note PDF is added.</span>';
+  if (S.lastSync) h += '<span class="foot">Synced ' + new Date(S.lastSync).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) + (S.syncing ? ' · syncing…' : '') + '</span>';
+  h += '</div>';
+  var addOpen = S.sheet && S.sheet.type === 'add';
+  h += '<button type="button" class="fab' + (addOpen ? ' open' : '') + '" data-act="' + (addOpen ? 'close' : 'add') + '" aria-label="' + (addOpen ? 'Close add menu' : 'Add trades') + '">' + ICON.plus + '</button>';
+  $('main').innerHTML = h;
+}
+
+/* ---------------- sheets ---------------- */
+function openSheet(s) { S.sheet = s; S.openTrade = null; renderSheet(); render(); }
+function closeSheet() {
+  if (S.check && S.check.preview) { try { URL.revokeObjectURL(S.check.preview); } catch (e) { } }
+  S.sheet = null; S.check = null; S.openTrade = null; $('overlay').innerHTML = ''; render();
+}
+function wrapSheet(inner, clear) {
+  return '<div class="ov' + (clear ? ' clear' : '') + '"><button type="button" class="bd" data-act="close" aria-label="Close"></button><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>' + inner + '</div></div>';
+}
+function closeBtn() { return '<button type="button" class="iconbtn" data-act="close" aria-label="Close">' + ICON.x + '</button>'; }
+
+function renderSheet() {
+  var s = S.sheet, el = $('overlay');
+  if (!s) { el.innerHTML = ''; return; }
+  if (s.type === 'add') {
+    el.innerHTML = '<div class="ov clear" style="z-index:19"><button type="button" class="bd" data-act="close" aria-label="Close"></button></div>' +
+      '<div class="menu">' +
+      '<button type="button" class="mi" data-act="pickSS">' + ICON.img + 'Screenshot · daily</button>' +
+      '<button type="button" class="mi" data-act="pickPDF">' + ICON.pdf + 'Contract note PDF · weekly</button>' +
+      '<button type="button" class="mi" data-act="funds">' + ICON.swap + 'Add / withdraw funds</button></div>';
+    return;
+  }
+  if (s.type === 'day') { el.innerHTML = wrapSheet(daySheet(s.date)); return; }
+  if (s.type === 'edit') { el.innerHTML = wrapSheet(editSheet(s.id)); return; }
+  if (s.type === 'confirmDel') { el.innerHTML = wrapSheet(confirmSheet(s.id)); return; }
+  if (s.type === 'funds') { el.innerHTML = wrapSheet(fundsSheet()); return; }
+  if (s.type === 'settings') { el.innerHTML = wrapSheet(settingsSheet()); return; }
+  if (s.type === 'whoami') {
+    el.innerHTML = '<div class="ov"><div class="bd"></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>' +
+      '<div class="sh"><div><div class="t">Whose phone is this?</div><div class="s">The app will open on this person\'s calendar. You can still switch tabs any time.</div></div></div>' +
+      '<div class="half">' + PEOPLE.map(function (p) { return '<button type="button" class="btn dark" data-act="setOwner" data-v="' + esc(p) + '">' + esc(p) + '</button>'; }).join('') + '</div></div></div>';
+    return;
+  }
+  if (s.type === 'check') { el.innerHTML = checkScreen(); return; }
+}
+
+function daySheet(date) {
+  var list = mine().filter(function (t) { return t.trade_date === date; });
+  var h = '';
+  var tot = list.reduce(function (a, t) { return a + net(t); }, 0);
+  var gross = list.reduce(function (a, t) { return a + num(t.pnl); }, 0);
+  var ch = list.reduce(function (a, t) { return a + num(t.charges); }, 0);
+  h += '<div class="sh"><div><div class="s">' + esc(S.who) + ' · ' + fmtDay(date) + '</div><div class="big ' + col(tot) + '">' + (list.length ? money(tot) : '₹0') + '</div>' +
+    (list.length ? '<div class="hint">Gross ' + money(gross) + ' · Charges ' + inr(ch) + '</div>' : '') + '</div>' + closeBtn() + '</div>';
+  if (!list.length) return h + '<span class="hint" style="padding:6px 0 14px;font-size:14px">No trades on this day.</span>';
+  if (list.some(function (t) { return t.approx; })) h += '<div class="note"><span class="nd"></span><span>Approximate — from screenshot, charges not included. Add this week\'s contract note PDF to make it exact.</span></div>';
+  h += '<span class="hint">Tap a trade to edit or delete it.</span>';
+  [['day', 'Day trading'], ['swing', 'Swing']].forEach(function (g) {
+    var gl = list.filter(function (t) { return t.category === g[0]; });
+    if (!gl.length) return;
+    var gt = gl.reduce(function (a, t) { return a + net(t); }, 0);
+    h += '<div class="grp"><div class="gh"><span class="tag ' + g[0] + '">' + g[1] + '</span><span class="mono ' + col(gt) + '" style="font-size:13px;font-weight:600">' + money(gt) + '</span></div>';
+    gl.forEach(function (t) {
+      var open = S.openTrade === t.id, v = net(t);
+      var det = [];
+      if (t.qty != null) det.push('Qty ' + Number(t.qty).toLocaleString('en-IN'));
+      if (t.buy != null && t.sell != null) det.push(px(t.buy) + ' → ' + px(t.sell));
+      if (num(t.charges)) det.push('chg ' + inr(t.charges));
+      h += '<div class="tr' + (open ? ' open' : '') + '"><button type="button" class="trb" data-act="tt" data-id="' + t.id + '" aria-expanded="' + open + '">' +
+        '<span><span class="sym" style="display:block">' + esc(t.symbol || '—') + '</span><span class="meta" style="display:block">' + typeLabel(t) + (t.source === 'pdf' ? ' · from PDF' : t.source === 'ss' ? ' · from screenshot' : '') + '</span>' +
+        (det.length ? '<span class="det" style="display:block">' + esc(det.join(' · ')) + '</span>' : '') + '</span>' +
+        '<span class="pl ' + col(v) + '">' + money(v) + '</span></button>' +
+        (open ? '<div class="tra"><button type="button" class="btn sm ghost" data-act="edit" data-id="' + t.id + '">' + ICON.edit + 'Edit</button>' +
+          '<button type="button" class="btn sm danger" data-act="del" data-id="' + t.id + '">' + ICON.trash + 'Delete</button></div>' : '') + '</div>';
+    });
+    h += '</div>';
+  });
+  var ups = {};
+  list.forEach(function (t) { if (t.upload_id && S.uploads[t.upload_id]) ups[t.upload_id] = S.uploads[t.upload_id]; });
+  var uk = Object.keys(ups);
+  if (uk.length) h += '<div class="half">' + uk.map(function (id) {
+    return '<button type="button" class="btn sm ghost" data-act="viewUp" data-id="' + id + '">' + (ups[id].kind === 'pdf' ? ICON.pdf + 'View PDF' : ICON.img + 'View screenshot') + '</button>';
+  }).join('') + '</div>';
+  return h;
+}
+
+function typeSelect(val, attrs) {
+  return '<select class="in" ' + attrs + '>' + TYPES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === val ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select>';
+}
+function editSheet(id) {
+  var t = S.trades.find(function (x) { return x.id === id; });
+  if (!t) return '<div class="sh"><div class="t">Trade not found</div>' + closeBtn() + '</div>';
+  return '<div class="sh"><div><div class="t">Edit trade</div><div class="s">' + esc(S.who) + '</div></div>' + closeBtn() + '</div>' +
+    '<div class="half"><label class="f">Date<input class="in" type="date" id="e_date" value="' + esc(t.trade_date) + '"></label>' +
+    '<label class="f">Type' + typeSelect(typeVal(t), 'id="e_type"') + '</label></div>' +
+    '<label class="f">Symbol<input class="in" id="e_sym" value="' + esc(t.symbol) + '" autocomplete="off"></label>' +
+    '<div class="g3"><label class="f">Qty<input class="in mono" id="e_qty" inputmode="decimal" value="' + esc(t.qty == null ? '' : t.qty) + '"></label>' +
+    '<label class="f">Buy<input class="in mono" id="e_buy" inputmode="decimal" value="' + esc(t.buy == null ? '' : t.buy) + '"></label>' +
+    '<label class="f">Sell<input class="in mono" id="e_sell" inputmode="decimal" value="' + esc(t.sell == null ? '' : t.sell) + '"></label></div>' +
+    '<div class="half"><label class="f">Gross P&amp;L (₹)<input class="in mono" id="e_pnl" inputmode="decimal" value="' + esc(t.pnl) + '"></label>' +
+    '<label class="f">Charges (₹)<input class="in mono" id="e_chg" inputmode="decimal" value="' + esc(t.charges) + '"></label></div>' +
+    '<label style="display:flex;align-items:center;gap:10px;font-size:14px;min-height:44px"><input type="checkbox" id="e_approx" style="width:20px;height:20px"' + (t.approx ? ' checked' : '') + '>Approximate (charges not final)</label>' +
+    '<div class="two"><button type="button" class="btn ghost" data-act="close">Cancel</button><button type="button" class="btn dark" data-act="saveEdit" data-id="' + t.id + '">Save</button></div>';
+}
+function confirmSheet(id) {
+  var t = S.trades.find(function (x) { return x.id === id; });
+  return '<div class="sh"><div><div class="t">Delete this trade?</div><div class="s">' + (t ? esc(t.symbol) + ' · ' + fmtDay(t.trade_date) + ' · ' + money(net(t)) : '') + '</div></div></div>' +
+    '<span class="hint">You can undo for a few seconds after deleting.</span>' +
+    '<div class="half"><button type="button" class="btn ghost" data-act="backDay">Cancel</button><button type="button" class="btn dangerfill" data-act="confirmDel" data-id="' + id + '">Delete</button></div>';
+}
+function fundsSheet() {
+  var mode = S.sheet.mode || 'add';
+  var list = S.funds.filter(function (f) { return f.profile === S.who; }).slice().reverse();
+  return '<div class="sh"><div><div class="t">Funds · ' + esc(S.who) + '</div><div class="s">Money moved in or out of the trading account. Not counted as profit or loss.</div></div>' + closeBtn() + '</div>' +
+    '<div class="seg"><button type="button" class="tab' + (mode === 'add' ? ' on' : '') + '" data-act="fmode" data-v="add">Add funds</button><button type="button" class="tab' + (mode === 'wd' ? ' on' : '') + '" data-act="fmode" data-v="wd">Withdraw</button></div>' +
+    '<label class="f">Amount (₹)<input class="in mono" id="f_amt" inputmode="decimal" placeholder="0" style="font-size:18px;height:50px"></label>' +
+    '<div class="half"><label class="f">Date<input class="in" type="date" id="f_date" value="' + todayStr() + '"></label><label class="f">Note (optional)<input class="in" id="f_note" autocomplete="off"></label></div>' +
+    '<button type="button" class="btn dark" data-act="saveFunds">Save</button>' +
+    (list.length ? '<div class="flist"><span class="hint">Earlier entries</span>' + list.map(function (f) {
+      return '<div class="frow"><span><span class="mono ' + col(num(f.amount)) + '" style="font-weight:600">' + money(num(f.amount)) + '</span> · ' + fmtDay(f.fund_date) + (f.note ? ' · ' + esc(f.note) : '') + '</span>' +
+        '<button type="button" class="xbtn" data-act="delFund" data-id="' + f.id + '" aria-label="Delete entry">' + ICON.x + '</button></div>';
+    }).join('') + '</div>' : '');
+}
+function settingsSheet() {
+  var st = S.settings[S.who];
+  return '<div class="sh"><div><div class="t">Settings · ' + esc(S.who) + '</div><div class="s">Signed in as ' + esc(S.email) + '</div></div>' + closeBtn() + '</div>' +
+    '<label class="f">' + esc(S.who) + '\'s starting capital (₹)<input class="in mono" id="s_cap" inputmode="decimal" value="' + esc(st ? st.start_capital : '') + '" placeholder="e.g. 200000" style="font-size:18px;height:50px"></label>' +
+    '<span class="hint">The money in the trading account when you started tracking. Later deposits go under + → Add / withdraw funds.</span>' +
+    '<button type="button" class="btn dark" data-act="saveCap">Save</button>' +
+    '<div style="height:1px;background:var(--soft);margin:2px 0"></div>' +
+    '<label class="f">Gemini key (shared by both phones)<input class="in mono" id="s_key" type="password" autocomplete="off" value="' + esc(S.ai.key) + '" placeholder="Paste key here"></label>' +
+    '<span class="hint">Reads your screenshots and PDFs. Get a free key at aistudio.google.com → Get API key. Saved once, works on both phones.</span>' +
+    '<label class="f">AI model (leave as is)<input class="in mono" id="s_model" autocomplete="off" value="' + esc(S.ai.model || DEFAULT_MODEL) + '"></label>' +
+    '<button type="button" class="btn ghost" data-act="saveKey">Save AI key</button>' +
+    '<div style="height:1px;background:var(--soft);margin:2px 0"></div>' +
+    '<button type="button" class="btn ghost" data-act="shareSetup">Send setup link to Chandana</button>' +
+    '<span class="hint">She opens it on her phone, signs in with her email and password — done. No setup on her side.</span>' +
+    '<div class="half"><button type="button" class="btn sm ghost" data-act="sync">Sync now</button><button type="button" class="btn sm ghost" data-act="logout">Sign out</button></div>' +
+    '<span class="hint">' + (S.lastSync ? 'Last synced ' + new Date(S.lastSync).toLocaleString('en-IN') : 'Not synced yet') + '</span>';
+}
+
+/* ---------------- check screen (after screenshot / PDF) ---------------- */
+function blankRow(date) { return { date: date || todayStr(), symbol: '', type: 'day:nifty', qty: '', buy: '', sell: '', pnl: '', charges: '', uncertain: [], pnlManual: false }; }
+function rowDup(r) {
+  if (!S.check || S.check.kind !== 'ss') return false;
+  return mine().some(function (t) {
+    return t.trade_date === r.date && String(t.symbol || '').trim().toUpperCase() === String(r.symbol || '').trim().toUpperCase() &&
+      r2(num(t.qty)) === r2(num(r.qty)) && r2(num(t.buy)) === r2(num(r.buy)) && r2(num(t.sell)) === r2(num(r.sell)) && r2(num(t.pnl)) === r2(num(r.pnl));
+  });
+}
+function checkScreen() {
+  var c = S.check, h = '<div class="full" role="dialog" aria-modal="true"><div class="in-wrap">';
+  h += '<div class="fhead"><button type="button" class="iconbtn" style="background:transparent" data-act="close" aria-label="Cancel">' + ICON.x + '</button>' +
+    '<div><div style="font-size:18px;font-weight:700">Check before saving</div><div class="hint">' + esc(S.who) + ' · ' + (c.kind === 'ss' ? 'screenshot' : 'contract note PDF') + '</div></div></div>';
+  h += '<div class="fbody">';
+  h += '<div class="card file">' + (c.preview ? '<img class="thumb" src="' + c.preview + '" alt="">' : '<span class="thumb">' + ICON.pdf + '</span>') +
+    '<div><div style="font-size:14px;font-weight:600;word-break:break-all">' + esc(c.fileName) + '</div><div class="hint">' +
+    (c.status === 'reading' ? 'Reading…' : c.status === 'error' ? 'Could not read automatically' : c.rows.length + ' trade' + (c.rows.length === 1 ? '' : 's') + ' found' + (c.flagged ? ' · ' + c.flagged + ' need' + (c.flagged === 1 ? 's' : '') + ' a check' : '')) + '</div></div></div>';
+
+  if (c.status === 'reading') {
+    h += '<div class="center"><div class="spin"></div>Reading your ' + (c.kind === 'ss' ? 'screenshot' : 'PDF') + '… this takes a few seconds.</div>';
+  } else {
+    if (c.status === 'error') h += '<div class="note warn"><span>' + esc(c.error) + ' You can type the trades below instead.</span></div>';
+    if (c.notes) h += '<div class="note"><span class="nd"></span><span>' + esc(c.notes) + '</span></div>';
+    if (c.kind === 'ss') h += '<label class="f">Trade date<input class="in" type="date" id="c_date" value="' + esc(c.date) + '"></label>';
+    c.rows.forEach(function (r, i) {
+      var dup = rowDup(r), un = r.uncertain || [];
+      var w = function (f) { return un.indexOf(f) >= 0 ? ' warn' : ''; };
+      h += '<div class="crow' + (un.length ? ' flag' : '') + (dup ? ' dup' : '') + '" data-row="' + i + '">' +
+        '<div class="top1"><label class="f" style="flex:1">Symbol<input class="in' + w('symbol') + '" data-f="symbol" value="' + esc(r.symbol) + '" autocomplete="off"></label>' +
+        '<button type="button" class="xbtn" style="height:44px;width:44px" data-act="rmRow" data-i="' + i + '" aria-label="Remove this trade">' + ICON.x + '</button></div>' +
+        '<div class="half"><label class="f">Type' + typeSelect(r.type, 'data-f="type"') + '</label>' +
+        (c.kind === 'pdf' ? '<label class="f">Date<input class="in' + w('date') + '" type="date" data-f="date" value="' + esc(r.date) + '"></label>' : '<span></span>') + '</div>' +
+        '<div class="g3"><label class="f">Qty<input class="in mono' + w('qty') + '" data-f="qty" inputmode="decimal" value="' + esc(r.qty) + '"></label>' +
+        '<label class="f">Buy<input class="in mono' + w('buy') + '" data-f="buy" inputmode="decimal" value="' + esc(r.buy) + '"></label>' +
+        '<label class="f">Sell<input class="in mono' + w('sell') + '" data-f="sell" inputmode="decimal" value="' + esc(r.sell) + '"></label></div>' +
+        '<div class="half"><label class="f">Gross P&amp;L (₹)<input class="in mono' + w('pnl') + '" data-f="pnl" inputmode="decimal" value="' + esc(r.pnl) + '"></label>' +
+        (c.kind === 'pdf' ? '<label class="f">Charges (₹)<input class="in mono' + w('charges') + '" data-f="charges" inputmode="decimal" value="' + esc(r.charges) + '"></label>' : '<span></span>') + '</div>' +
+        (un.length ? '<span class="warnt">Couldn\'t read ' + esc(un.join(', ')) + ' clearly — please check.</span>' : '') +
+        (dup ? '<span class="warnt" style="color:var(--muted)">Already saved for this day — will be skipped.</span>' : '') + '</div>';
+    });
+    h += '<button type="button" class="btn ghost" data-act="addRow">+ Add a trade</button>';
+    if (c.kind === 'ss') h += '<div class="note"><span class="nd"></span><span>Screenshots don\'t show charges, so this day is saved as approximate until the week\'s PDF is added.</span></div>';
+    else {
+      var dates = {}; c.rows.forEach(function (r) { if (validDate(r.date)) dates[r.date] = 1; });
+      var existing = mine().filter(function (t) { return dates[t.trade_date]; });
+      var ex = {}; existing.forEach(function (t) { ex[t.trade_date] = (ex[t.trade_date] || 0) + 1; });
+      var exDays = Object.keys(ex).sort();
+      h += '<div class="note ok">' + ICON.check + '<span>' + (exDays.length ? 'Replaces the ' + existing.length + ' saved trade' + (existing.length === 1 ? '' : 's') + ' on ' + exDays.map(fmtDay).join(', ') + ' with these exact ones. Nothing is counted twice.' : 'Exact figures with charges. Nothing is counted twice.') + '</span></div>';
+    }
+  }
+  h += '</div>';
+  var n = c.status === 'reading' ? 0 : c.rows.filter(function (r) { return !rowDup(r); }).length;
+  h += '<div class="ffoot"><div class="two"><button type="button" class="btn ghost" data-act="close">Cancel</button>' +
+    '<button type="button" class="btn dark" data-act="saveCheck" id="saveCheckBtn"' + (c.status === 'reading' || c.saving ? ' disabled' : '') + '>' +
+    (c.saving ? 'Saving…' : c.kind === 'pdf' ? 'Save exact trades' : 'Save ' + n + ' trade' + (n === 1 ? '' : 's')) + '</button></div></div>';
+  h += '</div></div>';
+  return h;
+}
+function recalcRow(i) {
+  var r = S.check.rows[i];
+  var q = numOrNull(r.qty), b = numOrNull(r.buy), s = numOrNull(r.sell);
+  if (!r.pnlManual && q != null && b != null && s != null) {
+    r.pnl = String(r2((s - b) * q));
+    var box = document.querySelector('[data-row="' + i + '"] [data-f="pnl"]');
+    if (box) box.value = r.pnl;
+  }
+}
+function normalize(res, kind, date) {
+  var rows = (res.trades || []).map(function (t) {
+    var r = blankRow(kind === 'ss' ? date : (validDate(t.date) ? t.date : todayStr()));
+    r.symbol = t.symbol || '';
+    var sub = SUB_LABEL[t.sub] ? t.sub : 'other';
+    r.type = t.category === 'swing' ? 'swing:other' : 'day:' + sub;
+    r.qty = t.qty == null ? '' : String(t.qty);
+    r.buy = t.buy == null ? '' : String(t.buy);
+    r.sell = t.sell == null ? '' : String(t.sell);
+    var p = t.pnl;
+    if (p == null && t.qty != null && t.buy != null && t.sell != null) p = r2((t.sell - t.buy) * t.qty);
+    r.pnl = p == null ? '' : String(p);
+    r.pnlManual = t.pnl != null;
+    r.charges = t.charges ? String(t.charges) : '';
+    r.uncertain = Array.isArray(t.uncertain) ? t.uncertain : [];
+    if (kind === 'pdf' && !validDate(t.date) && r.uncertain.indexOf('date') < 0) r.uncertain.push('date');
+    if (r.pnl === '' && r.uncertain.indexOf('pnl') < 0) r.uncertain.push('pnl');
+    return r;
+  });
+  var dc = res.day_charges || {};
+  Object.keys(dc).forEach(function (dk) {
+    var amt = num(dc[dk]); if (!amt) return;
+    var target = rows.filter(function (r) { return r.date === dk && !num(r.charges); });
+    if (!target.length) return;
+    var each = r2(amt / target.length), used = 0;
+    target.forEach(function (r, j) { var v = j === target.length - 1 ? r2(amt - used) : each; used += v; r.charges = String(v); });
+  });
+  return rows;
+}
+
+/* --- reading files --- */
+function compressImage(file) {
+  return new Promise(function (res, rej) {
+    var img = new Image(), url = URL.createObjectURL(file);
+    img.onload = function () {
+      var max = 1800, w = img.naturalWidth, h = img.naturalHeight, sc = Math.min(1, max / Math.max(w, h));
+      var cv = document.createElement('canvas'); cv.width = Math.round(w * sc); cv.height = Math.round(h * sc);
+      var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url);
+      res(cv.toDataURL('image/jpeg', 0.88).split(',')[1]);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('Could not open this image.')); };
+    img.src = url;
+  });
+}
+async function pdfText(file) {
+  if (!window.pdfjsLib) throw new Error('PDF reader did not load — check internet.');
+  var buf = await file.arrayBuffer(), pwKey = 'pnlcal.pdfpw.' + S.who, pw = lsGet(pwKey) || '', tries = 0;
+  for (;;) {
+    try {
+      var doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)), password: pw || undefined }).promise;
+      if (pw) lsSet(pwKey, pw);
+      var out = '';
+      for (var p = 1; p <= doc.numPages; p++) {
+        var page = await doc.getPage(p), tc = await page.getTextContent();
+        out += '\n--- Page ' + p + ' ---\n' + tc.items.map(function (it) { return it.str + (it.hasEOL ? '\n' : ' '); }).join('');
+      }
+      if (out.replace(/\s|-|Page \d+/g, '').length < 40) throw new Error('This PDF has no readable text (it may be a scanned image). Take a screenshot of it instead.');
+      return out;
+    } catch (e) {
+      if (e && e.name === 'PasswordException') {
+        var ans = window.prompt(tries ? 'Wrong password. Try again:' : 'This PDF is password-protected (often your PAN in capitals). Enter password:');
+        if (ans === null) throw new Error('PDF needs its password.');
+        pw = ans.trim(); tries++; continue;
+      }
+      throw e;
+    }
+  }
+}
+var DEFAULT_MODEL = 'gemini-3.8-flash';
+var AI_PROMPT = [
+  'You read Indian stock-market broker documents (NSE/BSE) for a personal P&L calendar.',
+  'Inputs are either a screenshot from a broker app (Kotak Neo, Zerodha Kite, etc.: orders, trade book, positions or P&L screens)',
+  'or the text of a contract note PDF. Extract every CLOSED trade (a buy and a matching sell, or sell then buy).',
+  '',
+  'Return ONLY a JSON object in exactly this shape:',
+  '{"trades":[{"date":"YYYY-MM-DD or null","symbol":"e.g. NIFTY 25500 CE, BANKNIFTY FUT, TATAMOTORS","category":"day|swing",',
+  '"sub":"nifty|sensex|banknifty|stockopt|stocks|other","qty":number|null,"buy":number|null,"sell":number|null,',
+  '"pnl":number|null,"charges":number,"uncertain":["field names you could not read clearly"]}],',
+  '"day_charges":{"YYYY-MM-DD":number},"notes":"one short line or empty"}',
+  '',
+  'Rules:',
+  '- category "day" = opened and closed the same day (intraday/MIS). "swing" = opened on an earlier day (CNC/NRML carry-forward) and closed on this date.',
+  '- sub: index options/futures by underlying: NIFTY -> nifty, SENSEX -> sensex, BANKNIFTY -> banknifty. Options on individual stocks -> stockopt. Plain equity shares -> stocks. Anything else (FINNIFTY, MIDCPNIFTY, commodities) -> other.',
+  '- Combine several fills of the same symbol into one round trip with average prices and total qty.',
+  '- pnl = (sell - buy) * qty when prices are known; if realised P&L is shown directly, use it. Negative for a loss.',
+  '- Leave out open positions that are not closed yet.',
+  '- From a contract note use the real charges (brokerage, STT, exchange, SEBI, GST, stamp duty); if only given per day, use day_charges. From a screenshot charges = 0.',
+  '- Never invent numbers. If a value is unreadable use null and list it in "uncertain".'
+].join('\n');
+async function readWithAI(payload) {
+  var key = (S.ai.key || '').trim();
+  if (!key) throw new Error('No Gemini key yet — add it in ⚙ Settings.');
+  var parts = payload.kind === 'image'
+    ? [{ inline_data: { mime_type: payload.media_type, data: payload.data } }, { text: 'This is a broker app screenshot. Today is ' + payload.today + '. If no date is visible, use null.' }]
+    : [{ text: 'Contract note text (today is ' + payload.today + '):\n\n' + payload.text.slice(0, 120000) }];
+  var body = JSON.stringify({
+    systemInstruction: { parts: [{ text: AI_PROMPT }] },
+    contents: [{ role: 'user', parts: parts }],
+    generationConfig: { temperature: 0, responseMimeType: 'application/json' }
+  });
+  var models = [S.ai.model || DEFAULT_MODEL, 'gemini-flash-latest'].filter(function (m, i, a) { return m && a.indexOf(m) === i; });
+  for (var mi = 0; mi < models.length; mi++) {
+    var res;
+    try {
+      res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(models[mi]) + ':generateContent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: body });
+    } catch (e) { throw new Error('No internet — could not reach Gemini.'); }
+    if (res.status === 404 && mi < models.length - 1) continue;
+    var j = null; try { j = await res.json(); } catch (e) { }
+    if (!res.ok) {
+      var msg = j && j.error && j.error.message || ('AI request failed (' + res.status + ')');
+      if (/api key/i.test(msg)) msg = 'Gemini key is not valid — check it in ⚙ Settings.';
+      else if (res.status === 429) msg = 'Gemini limit reached for now — try again in a minute.';
+      throw new Error(msg);
+    }
+    var cand = j && j.candidates && j.candidates[0];
+    var text = cand && cand.content && cand.content.parts ? cand.content.parts.map(function (p) { return p.text || ''; }).join('') : '';
+    var a = text.indexOf('{'), z = text.lastIndexOf('}');
+    if (a < 0 || z < 0) throw new Error('AI did not return trades.');
+    var out = JSON.parse(text.slice(a, z + 1));
+    if (!Array.isArray(out.trades)) out.trades = [];
+    return out;
+  }
+  throw new Error('No Gemini model available.');
+}
+async function startCheck(kind, file) {
+  S.check = { kind: kind, file: file, fileName: file.name || (kind === 'pdf' ? 'contract-note.pdf' : 'screenshot.jpg'), status: 'reading', rows: [], date: todayStr(), flagged: 0,
+    preview: kind === 'ss' ? URL.createObjectURL(file) : null };
+  S.sheet = { type: 'check' }; renderSheet(); render();
+  var my = S.check;
+  try {
+    var payload;
+    if (kind === 'ss') payload = { kind: 'image', media_type: 'image/jpeg', data: await compressImage(file), today: todayStr() };
+    else payload = { kind: 'text', text: await pdfText(file), today: todayStr() };
+    var res = await readWithAI(payload);
+    if (S.check !== my) return;
+    if (kind === 'ss') { var ds = (res.trades || []).map(function (t) { return t.date; }).filter(validDate); if (ds.length) my.date = ds[0]; }
+    my.rows = normalize(res, kind, my.date);
+    my.notes = res.notes || '';
+    if (!my.rows.length) { my.status = 'error'; my.error = 'No closed trades were found in this file.'; my.rows = [blankRow(my.date)]; }
+    else my.status = 'ready';
+  } catch (e) {
+    if (S.check !== my) return;
+    my.status = 'error'; my.error = e.message || 'Could not read the file.'; my.rows = [blankRow(my.date)];
+  }
+  my.flagged = my.rows.filter(function (r) { return r.uncertain && r.uncertain.length; }).length;
+  renderSheet();
+}
+async function saveCheck() {
+  var c = S.check; if (!c || c.saving) return;
+  var rows = c.rows.filter(function (r) { return String(r.symbol).trim() || String(r.pnl).trim(); });
+  if (c.kind === 'ss') rows = rows.filter(function (r) { return !rowDup(r); });
+  var bad = rows.filter(function (r) { return !validDate(r.date) || numOrNull(r.pnl) == null; });
+  if (bad.length) { toast('Fill in the P&L' + (c.kind === 'pdf' ? ' and date' : '') + ' for every trade first.'); return; }
+  if (!rows.length) { toast('Nothing new to save.'); return; }
+  c.saving = true; renderSheet();
+  try {
+    var uploadId = null;
+    try {
+      var ext = c.kind === 'pdf' ? 'pdf' : ((c.fileName.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg');
+      var path = S.who + '/' + todayStr() + '_' + Date.now() + '.' + ext;
+      var up = await sb.storage.from('uploads').upload(path, c.file, { contentType: c.file.type || undefined, upsert: false });
+      if (!up.error) {
+        var ins = await sb.from('uploads').insert({ profile: S.who, kind: c.kind, path: path, file_name: c.fileName, created_by: S.email }).select('id').single();
+        if (!ins.error && ins.data) uploadId = ins.data.id;
+      }
+    } catch (e) { /* the original file is optional; trades still save */ }
+    if (c.kind === 'pdf') {
+      var dates = rows.map(function (r) { return r.date; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+      var del = await sb.from('trades').update({ deleted_at: new Date().toISOString() }).eq('profile', S.who).in('trade_date', dates).is('deleted_at', null);
+      if (del.error) throw del.error;
+    }
+    var recs = rows.map(function (r) {
+      var tp = r.type.split(':');
+      return { profile: S.who, trade_date: r.date, category: tp[0], sub: tp[1] || 'other', symbol: String(r.symbol).trim().toUpperCase(),
+        qty: numOrNull(r.qty), buy: numOrNull(r.buy), sell: numOrNull(r.sell), pnl: num(r.pnl), charges: c.kind === 'pdf' ? num(r.charges) : 0,
+        approx: c.kind === 'ss', source: c.kind, upload_id: uploadId, created_by: S.email };
+    });
+    var res = await sb.from('trades').insert(recs);
+    if (res.error) throw res.error;
+    var first = rows[0].date;
+    closeSheet();
+    toast('Saved ' + recs.length + ' trade' + (recs.length === 1 ? '' : 's'));
+    var fd = parseD(first); S.y = fd.getFullYear(); S.m = fd.getMonth();
+    await loadAll();
+  } catch (e) {
+    c.saving = false; renderSheet();
+    toast(navigator.onLine ? 'Could not save: ' + (e.message || 'error') : 'No internet — not saved. Try again when online.');
+  }
+}
+
+/* ---------------- actions ---------------- */
+async function saveEdit(id) {
+  var tp = $('e_type').value.split(':');
+  var upd = { trade_date: $('e_date').value, category: tp[0], sub: tp[1] || 'other', symbol: $('e_sym').value.trim().toUpperCase(),
+    qty: numOrNull($('e_qty').value), buy: numOrNull($('e_buy').value), sell: numOrNull($('e_sell').value),
+    pnl: num($('e_pnl').value), charges: num($('e_chg').value), approx: $('e_approx').checked };
+  if (!validDate(upd.trade_date)) { toast('Pick a date.'); return; }
+  var r = await sb.from('trades').update(upd).eq('id', id);
+  if (r.error) { toast('Could not save: ' + r.error.message); return; }
+  var t = S.trades.find(function (x) { return x.id === id; }); if (t) Object.assign(t, upd);
+  saveCache();
+  S.sheet = { type: 'day', date: upd.trade_date }; S.openTrade = null; renderSheet(); render();
+  toast('Trade updated'); queueReload();
+}
+async function deleteTrade(id) {
+  var t = S.trades.find(function (x) { return x.id === id; }); if (!t) return;
+  var r = await sb.from('trades').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  if (r.error) { toast('Could not delete: ' + r.error.message); return; }
+  S.trades = S.trades.filter(function (x) { return x.id !== id; }); saveCache();
+  S.sheet = { type: 'day', date: t.trade_date }; S.openTrade = null; renderSheet(); render();
+  toast('Trade deleted', 'Undo', async function () {
+    var u = await sb.from('trades').update({ deleted_at: null }).eq('id', id);
+    if (u.error) { toast('Could not undo: ' + u.error.message); return; }
+    toast('Trade restored'); loadAll();
+  });
+}
+async function saveFunds() {
+  var amt = Math.abs(num($('f_amt').value)), date = $('f_date').value;
+  if (!amt) { toast('Enter an amount.'); return; }
+  if (!validDate(date)) { toast('Pick a date.'); return; }
+  var signed = (S.sheet.mode || 'add') === 'wd' ? -amt : amt;
+  var r = await sb.from('funds').insert({ profile: S.who, fund_date: date, amount: signed, note: $('f_note').value.trim() || null, created_by: S.email });
+  if (r.error) { toast('Could not save: ' + r.error.message); return; }
+  closeSheet(); toast((signed > 0 ? 'Added ' : 'Withdrew ') + inr(signed)); loadAll();
+}
+async function deleteFund(id) {
+  if (!window.confirm('Delete this funds entry?')) return;
+  var r = await sb.from('funds').delete().eq('id', id);
+  if (r.error) { toast('Could not delete: ' + r.error.message); return; }
+  S.funds = S.funds.filter(function (f) { return f.id !== id; }); saveCache(); renderSheet(); render(); queueReload();
+}
+async function saveCap() {
+  var v = num($('s_cap').value);
+  var r = await sb.from('settings').upsert({ profile: S.who, start_capital: v });
+  if (r.error) { toast('Could not save: ' + r.error.message); return; }
+  S.settings[S.who] = Object.assign({}, S.settings[S.who] || {}, { profile: S.who, start_capital: v }); saveCache();
+  closeSheet(); toast('Starting capital saved');
+}
+async function saveKey() {
+  var k = $('s_key').value.trim(), m = $('s_model').value.trim() || DEFAULT_MODEL;
+  var r = await sb.from('app_config').upsert({ id: 1, gemini_key: k, gemini_model: m });
+  if (r.error) { toast('Could not save: ' + r.error.message); return; }
+  S.ai = { key: k, model: m }; saveCache();
+  closeSheet(); toast(k ? 'AI key saved for both phones' : 'AI key removed');
+}
+async function viewUpload(id) {
+  var u = S.uploads[id]; if (!u || !u.path) return;
+  var w = window.open('', '_blank');
+  var r = await sb.storage.from('uploads').createSignedUrl(u.path, 300);
+  if (r.error || !r.data) { if (w) w.close(); toast('Could not open file.'); return; }
+  if (w) w.location = r.data.signedUrl; else window.location.href = r.data.signedUrl;
+}
+
+document.addEventListener('click', function (e) {
+  var el = e.target.closest('[data-act]'); if (!el) return;
+  var a = el.getAttribute('data-act'), v = el.getAttribute('data-v'), id = el.getAttribute('data-id');
+  switch (a) {
+    case 'who': S.who = v; lsSet('pnlcal.who', v); S.sheet = null; $('overlay').innerHTML = ''; render(); break;
+    case 'top': S.top = v; S.sub = 'all'; render(); break;
+    case 'sub': S.sub = v; render(); break;
+    case 'prev': S.m--; if (S.m < 0) { S.m = 11; S.y--; } render(); break;
+    case 'next': S.m++; if (S.m > 11) { S.m = 0; S.y++; } render(); break;
+    case 'day': openSheet({ type: 'day', date: el.getAttribute('data-date') }); break;
+    case 'add': openSheet({ type: 'add' }); break;
+    case 'close': closeSheet(); break;
+    case 'settings': openSheet({ type: 'settings' }); break;
+    case 'funds': openSheet({ type: 'funds', mode: 'add' }); break;
+    case 'fmode': S.sheet.mode = v; renderSheet(); break;
+    case 'pickSS': $('fileSS').value = ''; $('fileSS').click(); break;
+    case 'pickPDF': $('filePDF').value = ''; $('filePDF').click(); break;
+    case 'tt': S.openTrade = S.openTrade === id ? null : id; renderSheet(); break;
+    case 'edit': S.sheet = { type: 'edit', id: id, back: S.sheet.date }; renderSheet(); break;
+    case 'del': S.sheet = { type: 'confirmDel', id: id, back: S.sheet.date }; renderSheet(); break;
+    case 'backDay': S.sheet = { type: 'day', date: S.sheet.back }; renderSheet(); break;
+    case 'confirmDel': deleteTrade(id); break;
+    case 'saveEdit': saveEdit(id); break;
+    case 'saveFunds': saveFunds(); break;
+    case 'delFund': deleteFund(id); break;
+    case 'saveCap': saveCap(); break;
+    case 'saveKey': saveKey(); break;
+    case 'sync': loadAll().then(function () { toast('Synced'); }); break;
+    case 'logout': sb.auth.signOut(); break;
+    case 'setOwner': lsSet('pnlcal.owner', v); S.who = v; closeSheet(); break;
+    case 'shareSetup': shareSetup(); break;
+    case 'viewUp': viewUpload(id); break;
+    case 'rmRow': S.check.rows.splice(Number(el.getAttribute('data-i')), 1); if (!S.check.rows.length) S.check.rows.push(blankRow(S.check.date)); renderSheet(); break;
+    case 'addRow': S.check.rows.push(blankRow(S.check.date)); renderSheet(); var b = document.querySelector('.fbody'); if (b) b.scrollTop = b.scrollHeight; break;
+    case 'saveCheck': saveCheck(); break;
+  }
+});
+function onField(e) {
+  var t = e.target;
+  if (t.id === 'c_date' && S.check) { S.check.date = t.value; S.check.rows.forEach(function (r) { r.date = t.value; }); return; }
+  var rowEl = t.closest && t.closest('[data-row]'); if (!rowEl || !S.check) return;
+  var i = Number(rowEl.getAttribute('data-row')), f = t.getAttribute('data-f'), r = S.check.rows[i]; if (!r || !f) return;
+  r[f] = t.value;
+  if (r.uncertain && r.uncertain.indexOf(f) >= 0) { r.uncertain = r.uncertain.filter(function (x) { return x !== f; }); t.classList.remove('warn'); }
+  if (f === 'pnl') r.pnlManual = t.value !== '';
+  if (f === 'qty' || f === 'buy' || f === 'sell') recalcRow(i);
+}
+document.addEventListener('input', onField);
+document.addEventListener('change', function (e) {
+  onField(e);
+  if (e.target.id === 'c_date' && S.check) renderSheet();
+});
+$('fileSS').addEventListener('change', function () { var f = this.files && this.files[0]; if (f) startCheck('ss', f); });
+$('filePDF').addEventListener('change', function () { var f = this.files && this.files[0]; if (f) startCheck('pdf', f); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.sheet && S.sheet.type !== 'whoami' && !(S.check && S.check.saving)) closeSheet(); });
+
+/* ---------------- login / start ---------------- */
+function renderSetup(err) {
+  $('main').innerHTML = '<form class="login" id="setupForm"><h1>P&amp;L Calendar</h1>' +
+    '<span class="hint" style="font-size:14px">One-time setup. Copy these two from Supabase → <b>Project Settings → API</b>.</span>' +
+    '<label class="f">Project URL<input class="in mono" id="c_url" placeholder="https://xxxx.supabase.co" autocomplete="off" required></label>' +
+    '<label class="f">anon public key<input class="in mono" id="c_key" placeholder="eyJ..." autocomplete="off" required></label>' +
+    (err ? '<span class="err">' + esc(err) + '</span>' : '') +
+    '<button class="btn dark" type="submit">Continue</button>' +
+    '<span class="hint">Chandana won\'t need this — you\'ll send her a setup link from ⚙ later.</span></form>';
+  $('setupForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var u = $('c_url').value.trim().replace(/\/+$/, ''), k = $('c_key').value.trim();
+    if (!/^https:\/\/.+/.test(u)) { renderSetup('The Project URL should start with https://'); return; }
+    if (k.length < 20) { renderSetup('That key looks too short — copy the full "anon public" key.'); return; }
+    try { localStorage.setItem(CONN_KEY, JSON.stringify({ u: u, k: k })); } catch (e2) { }
+    location.reload();
+  });
+}
+function setupLink() {
+  var c = CONN || {};
+  return location.origin + location.pathname + '#setup=' + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify({ u: c.u, k: c.k })))));
+}
+async function shareSetup() {
+  var link = setupLink();
+  var text = 'Open this on your phone to set up our P&L Calendar, then sign in with your email and password:\n' + link;
+  if (navigator.share) { try { await navigator.share({ title: 'P&L Calendar', text: text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  try { await navigator.clipboard.writeText(link); toast('Setup link copied — send it to Chandana on WhatsApp'); }
+  catch (e) { window.prompt('Copy this link and send it to Chandana:', link); }
+}
+function renderLogin(err) {
+  $('overlay').innerHTML = '';
+  $('main').innerHTML = '<form class="login" id="loginForm"><h1>P&amp;L Calendar</h1><span class="hint" style="font-size:14px">Sign in once on this phone. You\'ll stay signed in.</span>' +
+    '<label class="f">Email<input class="in" type="email" id="l_email" autocomplete="username" required></label>' +
+    '<label class="f">Password<input class="in" type="password" id="l_pw" autocomplete="current-password" required></label>' +
+    (err ? '<span class="err">' + esc(err) + '</span>' : '') +
+    '<button class="btn dark" type="submit" id="l_btn">Sign in</button></form>';
+  $('loginForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    $('l_btn').disabled = true; $('l_btn').textContent = 'Signing in…';
+    var r = await sb.auth.signInWithPassword({ email: $('l_email').value.trim(), password: $('l_pw').value });
+    if (r.error) renderLogin(r.error.message === 'Invalid login credentials' ? 'Wrong email or password.' : r.error.message);
+  });
+}
+function startApp(session) {
+  S.session = session; S.email = session.user.email || '';
+  var owner = lsGet('pnlcal.owner');
+  if (!S.started) S.who = owner && PEOPLE.indexOf(owner) >= 0 ? owner : PEOPLE[0];
+  S.started = true;
+  loadCache(); render(); loadAll(); subscribe();
+  if (!owner) openSheet({ type: 'whoami' });
+}
+async function init() {
+  if (!sb) { renderSetup(); return; }
+  sb.auth.onAuthStateChange(function (ev, session) {
+    if (ev === 'SIGNED_OUT' || !session) {
+      S.session = null; S.started = false;
+      if (S.chan) { sb.removeChannel(S.chan); S.chan = null; }
+      try { localStorage.removeItem(CACHE_KEY); } catch (e) { }
+      S.trades = []; S.funds = []; S.settings = {}; S.uploads = {}; S.ai = { key: '', model: '' };
+      renderLogin(); return;
+    }
+    if (ev === 'SIGNED_IN' && !S.started) startApp(session);
+    else S.session = session;
+  });
+  var r = await sb.auth.getSession();
+  if (r.data && r.data.session) { if (!S.started) startApp(r.data.session); }
+  else if (!S.session) renderLogin();
+}
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () { });
+init();
+})();
+</script>
+</body>
+</html>
