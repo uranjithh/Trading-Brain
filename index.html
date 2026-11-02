@@ -240,7 +240,7 @@ select.in{padding-right:4px}
 <input type="file" id="fileSS" accept="image/*" hidden>
 <input type="file" id="filePDF" accept="application/pdf,.pdf" hidden>
 <input type="file" id="fileStmt" accept="application/pdf,.pdf,.xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden>
-<input type="file" id="fileFunds" accept="image/*" hidden>
+<input type="file" id="fileFunds" accept="image/*,application/pdf,.pdf,.xlsx,.xls,.csv" hidden>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -695,11 +695,12 @@ function fundsSheet() {
   var mode = S.sheet.mode || 'add';
   var list = S.funds.filter(function (f) { return f.profile === S.who; }).slice().reverse();
   return '<div class="sh"><div><div class="t">Funds · ' + esc(S.who) + '</div><div class="s">Money moved in or out of the trading account. Not counted as profit or loss.</div></div>' + closeBtn() + '</div>' +
-    (S.sheet.reading ? '<button type="button" class="btn ghost" disabled>Reading screenshot…</button>' :
+    (S.sheet.reading ? '<button type="button" class="btn ghost" disabled>' + esc(S.sheet.readingMsg || 'Reading…') + '</button>' :
       '<div class="half"><button type="button" class="btn sm ghost" data-act="pasteFunds">' + ICON.paste + 'Paste screenshot</button>' +
-      '<button type="button" class="btn sm ghost" data-act="fundsSS">' + ICON.img + 'From files</button></div>') +
-    '<span class="hint">Copy a pay-in / withdrawal screenshot and press Ctrl+V, or pick the file.</span>' +
+      '<button type="button" class="btn sm ghost" data-act="fundsSS">' + ICON.pdf + 'Screenshot / PDF / Ledger</button></div>') +
+    '<span class="hint">Paste or pick a pay-in / withdrawal screenshot, or a broker <b>Ledger PDF</b> to add all deposits &amp; withdrawals at once.</span>' +
     (S.sheet.readNote ? '<div class="note' + (S.sheet.readOk ? ' ok' : ' warn') + '"><span>' + esc(S.sheet.readNote) + '</span></div>' : '') +
+    (S.sheet.imp ? fundsImportList() : '') +
     '<div class="seg"><button type="button" class="tab' + (mode === 'add' ? ' on' : '') + '" data-act="fmode" data-v="add">Add funds</button><button type="button" class="tab' + (mode === 'wd' ? ' on' : '') + '" data-act="fmode" data-v="wd">Withdraw</button></div>' +
     '<label class="f">Amount (₹)<input class="in mono" id="f_amt" inputmode="decimal" placeholder="0" style="font-size:18px;height:50px" value="' + esc(S.sheet.amt || '') + '"></label>' +
     '<div class="half"><label class="f">Date<input class="in" type="date" id="f_date" value="' + esc(S.sheet.date || todayStr()) + '"></label><label class="f">Note (optional)<input class="in" id="f_note" autocomplete="off" value="' + esc(S.sheet.note || '') + '"></label></div>' +
@@ -972,7 +973,7 @@ function compressImage(file) {
     img.src = url;
   });
 }
-var APP_VERSION = '2 Nov 2026 · v5';
+var APP_VERSION = '2 Nov 2026 · v6';
 function withTimeout(p, ms, msg) {
   return new Promise(function (res, rej) {
     var t = setTimeout(function () { rej(new Error(msg)); }, ms);
@@ -1036,6 +1037,61 @@ var FUNDS_PROMPT = [
   'Pay-in / add funds / deposit = "add". Payout / withdraw / transfer to bank = "withdraw". If several entries are shown, use the most recent one.',
   'Never invent numbers; use null when unreadable.'
 ].join('\n');
+var FUNDS_LIST_PROMPT = [
+  'You read an Indian broker LEDGER / funds statement (Kotak Neo, Zerodha, Groww) or bank statement for a trading account.',
+  'List ONLY real money movements between the bank and the trading account:',
+  '- "add": pay-in / funds added / UPI or NEFT deposit / payment received.',
+  '- "withdraw": payout / withdrawal / funds transferred to bank.',
+  'IGNORE trade settlements, buy/sell obligations, brokerage, STT, GST, DP charges, AMC, interest, margin blocks/releases, opening/closing balance lines.',
+  'Return ONLY JSON: {"entries":[{"type":"add"|"withdraw","amount":number,"date":"YYYY-MM-DD","note":"short e.g. UPI pay-in"}],"notes":"one short line or empty"}',
+  'Amounts are positive numbers. Never invent entries.'
+].join('\n');
+function fundsImportList() {
+  var im = S.sheet.imp, n = im.filter(function (e) { return e.on && !e.dup; }).length;
+  if (!im.length) return '';
+  return '<div class="flist"><span class="hint"><b>Found ' + im.length + ' deposit/withdrawal' + (im.length === 1 ? '' : 's') + '</b> — untick any you don\'t want.</span>' +
+    im.map(function (e, i) {
+      var amt = e.type === 'withdraw' ? -e.amount : e.amount;
+      return '<label class="frow" style="cursor:pointer' + (e.dup ? ';opacity:.55' : '') + '"><span style="display:flex;align-items:center;gap:10px">' +
+        '<input type="checkbox" data-imp="' + i + '" style="width:20px;height:20px"' + (e.on && !e.dup ? ' checked' : '') + (e.dup ? ' disabled' : '') + '>' +
+        '<span><span class="mono ' + col(amt) + '" style="font-weight:600">' + money(amt) + '</span> · ' + (validDate(e.date) ? fmtDay(e.date) + ' ' + e.date.slice(0, 4) : 'no date') +
+        (e.note ? '<span class="hint" style="display:block">' + esc(e.note) + '</span>' : '') +
+        (e.dup ? '<span class="hint" style="display:block">Already saved</span>' : '') + '</span></span></label>';
+    }).join('') +
+    '<button type="button" class="btn dark" data-act="saveImport"' + (n ? '' : ' disabled') + '>Save ' + n + ' entr' + (n === 1 ? 'y' : 'ies') + '</button></div>';
+}
+async function readFundsFile(file, preText) {
+  if (/^image\//.test(file.type || '')) return readFundsSS(file);
+  if (!S.sheet || S.sheet.type !== 'funds') openSheet({ type: 'funds', mode: 'add' });
+  S.sheet.reading = true; S.sheet.readingMsg = 'Opening ' + (file.name || 'file') + '…'; S.sheet.readNote = ''; S.sheet.imp = null; renderSheet();
+  try {
+    var text = preText || (isSheet(file) ? await sheetText(file) : isCsv(file) ? await readFileText(file) : await pdfText(file));
+    if (S.sheet && S.sheet.type === 'funds') { S.sheet.readingMsg = 'Finding deposits & withdrawals…'; renderSheet(); }
+    var out = await geminiJSON(FUNDS_LIST_PROMPT, [{ text: 'Statement text:\n\n' + text.slice(0, 200000) }]);
+    if (!S.sheet || S.sheet.type !== 'funds') return;
+    var mineF = S.funds.filter(function (f) { return f.profile === S.who; });
+    var list = (out.entries || []).filter(function (e) { return e && num(e.amount) > 0 && (e.type === 'add' || e.type === 'withdraw'); }).map(function (e) {
+      var amt = Math.abs(num(e.amount)), signed = e.type === 'withdraw' ? -amt : amt;
+      var dup = validDate(e.date) && mineF.some(function (f) { return f.fund_date === e.date && Math.round(num(f.amount)) === Math.round(signed); });
+      return { type: e.type, amount: amt, date: validDate(e.date) ? e.date : '', note: String(e.note || '').slice(0, 60), on: validDate(e.date), dup: dup };
+    }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    S.sheet.imp = list;
+    S.sheet.readOk = list.length > 0;
+    S.sheet.readNote = list.length ? '' : 'No deposits or withdrawals found in this file.';
+  } catch (e) {
+    if (!S.sheet || S.sheet.type !== 'funds') return;
+    S.sheet.readOk = false; S.sheet.readNote = e.message || 'Could not read the file.';
+  }
+  S.sheet.reading = false; renderSheet();
+}
+async function saveImport() {
+  var rows = (S.sheet.imp || []).filter(function (e) { return e.on && !e.dup && validDate(e.date); });
+  if (!rows.length) return;
+  var recs = rows.map(function (e) { return { profile: S.who, fund_date: e.date, amount: e.type === 'withdraw' ? -e.amount : e.amount, note: e.note || null, created_by: S.email }; });
+  var r = await sb.from('funds').insert(recs);
+  if (r.error) { toast('Could not save: ' + r.error.message); return; }
+  closeSheet(); toast('Saved ' + recs.length + ' funds entr' + (recs.length === 1 ? 'y' : 'ies')); loadAll();
+}
 async function readFundsSS(file) {
   S.sheet.amt = $('f_amt') ? $('f_amt').value : S.sheet.amt;
   S.sheet.reading = true; S.sheet.readNote = ''; renderSheet();
@@ -1105,6 +1161,9 @@ async function geminiJSON(prompt, parts) {
   }
   throw new Error('All Gemini models are busy right now — try again in a minute. (' + String(lastMsg).slice(0, 80) + ')');
 }
+function readFileText(f) {
+  return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result || '')); }; r.onerror = function () { rej(new Error('Could not read the file.')); }; r.readAsText(f); });
+}
 function isSheet(f) { return /\.(xlsx|xls)$/i.test(f.name || '') || /spreadsheet|ms-excel/.test(f.type || ''); }
 function isCsv(f) { return /\.csv$/i.test(f.name || '') || f.type === 'text/csv'; }
 function loadXlsx() {
@@ -1128,9 +1187,15 @@ async function startCheck(kind, file, statement) {
   try {
     var payload;
     if (kind === 'ss') payload = { kind: 'image', media_type: 'image/jpeg', data: await compressImage(file), today: todayStr() };
-    else payload = { kind: 'text', text: isSheet(file) ? await sheetText(file) : isCsv(file) ? await file.text() : await pdfText(file), today: todayStr() };
-    if (payload.kind === 'text' && /\bledger\b/i.test(payload.text.slice(0, 3000)) && !/contract note|trade ?book|tradebook/i.test(payload.text.slice(0, 3000)))
-      throw new Error('This is a Ledger — it shows money in/out, not individual trades. Upload a Contract note or Trade book instead (Kotak Neo: Reports → Contract notes / Trade book).');
+    else payload = { kind: 'text', text: isSheet(file) ? await sheetText(file) : isCsv(file) ? await readFileText(file) : await pdfText(file), today: todayStr() };
+    if (payload.kind === 'text' && /\bledger\b/i.test(payload.text.slice(0, 3000)) && !/contract note|trade ?book|tradebook/i.test(payload.text.slice(0, 3000))) {
+      if (S.check !== my) return;
+      S.check = null; S.sheet = null; $('overlay').innerHTML = '';
+      openSheet({ type: 'funds', mode: 'add' });
+      toast('This is a Ledger (money in/out) — reading it for deposits & withdrawals.');
+      readFundsFile(file, payload.text);
+      return;
+    }
     aiProgress('Sending to AI to pick out the trades…');
     var res = await readWithAI(payload);
     if (S.check !== my) return;
@@ -1291,6 +1356,7 @@ document.addEventListener('click', function (e) {
     case 'confirmDel': deleteTrade(id); break;
     case 'saveEdit': saveEdit(id); break;
     case 'saveFunds': saveFunds(); break;
+    case 'saveImport': saveImport(); break;
     case 'delFund': deleteFund(id); break;
     case 'saveCap': saveCap(); break;
     case 'saveKey': saveKey(); break;
@@ -1310,6 +1376,11 @@ document.addEventListener('click', function (e) {
 });
 function onField(e) {
   var t = e.target;
+  if (t.hasAttribute && t.hasAttribute('data-imp') && S.sheet && S.sheet.imp) {
+    var it = S.sheet.imp[Number(t.getAttribute('data-imp'))]; if (it) it.on = t.checked;
+    if (e.type === 'change') { S.sheet.amt = $('f_amt') ? $('f_amt').value : S.sheet.amt; renderSheet(); }
+    return;
+  }
   if (t.id === 'c_date' && S.check) { S.check.date = t.value; S.check.rows.forEach(function (r) { r.date = t.value; }); return; }
   var rowEl = t.closest && t.closest('[data-row]'); if (!rowEl || !S.check) return;
   var i = Number(rowEl.getAttribute('data-row')), f = t.getAttribute('data-f'), r = S.check.rows[i]; if (!r || !f) return;
@@ -1331,8 +1402,7 @@ function handleIncomingFile(f, target) {
   if (!isImg && !isPdf) { toast('That isn\'t a screenshot, PDF or Excel file.'); return false; }
   if (S.check) { toast('Finish or cancel the current check first.'); return false; }
   var fundsOpen = S.sheet && S.sheet.type === 'funds';
-  if ((target === 'funds' || fundsOpen) && isImg) { if (!fundsOpen) openSheet({ type: 'funds', mode: 'add' }); readFundsSS(f); return true; }
-  if (target === 'funds' && isPdf) { toast('For funds, paste a screenshot (not a PDF).'); return false; }
+  if (target === 'funds' || fundsOpen) { if (!fundsOpen) openSheet({ type: 'funds', mode: 'add' }); readFundsFile(f); return true; }
   if (!f.name) { try { f = new File([f], 'pasted-' + Date.now() + (isPdf ? '.pdf' : '.png'), { type: f.type }); } catch (e) { } }
   startCheck(isPdf ? 'pdf' : 'ss', f); return true;
 }
@@ -1370,7 +1440,7 @@ document.addEventListener('drop', function (e) {
   handleIncomingFile(e.dataTransfer.files[0]);
 });
 $('fileSS').addEventListener('change', function () { var f = this.files && this.files[0]; if (f) startCheck('ss', f); });
-$('fileFunds').addEventListener('change', function () { var f = this.files && this.files[0]; if (f && S.sheet && S.sheet.type === 'funds') readFundsSS(f); });
+$('fileFunds').addEventListener('change', function () { var f = this.files && this.files[0]; if (f && S.sheet && S.sheet.type === 'funds') readFundsFile(f); });
 $('fileStmt').addEventListener('change', function () { var f = this.files && this.files[0]; if (f) startCheck('pdf', f, true); });
 $('filePDF').addEventListener('change', function () { var f = this.files && this.files[0]; if (f) startCheck('pdf', f); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.sheet && S.sheet.type !== 'whoami' && !(S.check && S.check.saving)) closeSheet(); });
