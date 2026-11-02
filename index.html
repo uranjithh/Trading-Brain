@@ -947,28 +947,31 @@ async function geminiJSON(prompt, parts) {
     contents: [{ role: 'user', parts: parts }],
     generationConfig: { temperature: 0, responseMimeType: 'application/json' }
   });
-  var models = [S.ai.model || DEFAULT_MODEL, 'gemini-flash-latest'].filter(function (m, i, a) { return m && a.indexOf(m) === i; });
+  // Try the chosen model first, then fall back automatically when one is busy or missing.
+  var models = [S.ai.model || DEFAULT_MODEL, 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-flash-latest']
+    .filter(function (m, i, a) { return m && a.indexOf(m) === i; });
+  var lastMsg = '';
   for (var mi = 0; mi < models.length; mi++) {
-    var res;
+    var res, j = null;
     try {
-      res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(models[mi]) + ':generateContent', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: body });
+      res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(models[mi]) + ':generateContent?key=' + encodeURIComponent(key), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body });
     } catch (e) { throw new Error('No internet — could not reach Gemini.'); }
-    if (res.status === 404 && mi < models.length - 1) continue;
-    var j = null; try { j = await res.json(); } catch (e) { }
+    try { j = await res.json(); } catch (e) { }
     if (!res.ok) {
       var msg = j && j.error && j.error.message || ('AI request failed (' + res.status + ')');
-      if (/api key/i.test(msg)) msg = 'Gemini key is not valid — check it in ⚙ Settings.';
-      else if (res.status === 429) msg = 'Gemini limit reached for now — try again in a minute.';
+      if (/api key not valid|api_key_invalid|permission_denied/i.test(msg) || res.status === 401 || res.status === 403) throw new Error('Gemini key is not valid — check it in ⚙ Settings.');
+      // busy / rate-limited / model missing / server error → try the next model
+      if (res.status === 503 || res.status === 429 || res.status === 404 || res.status >= 500) { lastMsg = msg; continue; }
       throw new Error(msg);
     }
     var cand = j && j.candidates && j.candidates[0];
     var text = cand && cand.content && cand.content.parts ? cand.content.parts.map(function (p) { return p.text || ''; }).join('') : '';
     var a = text.indexOf('{'), z = text.lastIndexOf('}');
-    if (a < 0 || z < 0) throw new Error('AI did not return a result.');
-    return JSON.parse(text.slice(a, z + 1));
+    if (a < 0 || z < 0) { lastMsg = 'AI did not return a result.'; continue; }
+    try { return JSON.parse(text.slice(a, z + 1)); } catch (e) { lastMsg = 'AI reply could not be read.'; continue; }
   }
-  throw new Error('No Gemini model available.');
+  throw new Error('All Gemini models are busy right now — try again in a minute. (' + String(lastMsg).slice(0, 80) + ')');
 }
 async function startCheck(kind, file) {
   S.check = { kind: kind, file: file, fileName: file.name || (kind === 'pdf' ? 'contract-note.pdf' : 'screenshot.jpg'), status: 'reading', rows: [], date: todayStr(), flagged: 0,
@@ -1093,6 +1096,7 @@ async function changePw() {
 }
 async function saveKey() {
   var k = $('s_key').value.trim(), m = $('s_model').value.trim() || DEFAULT_MODEL;
+  if (k && !/^(AIza|AQ\.)/.test(k)) { toast('That doesn\'t look like a Gemini key — it should start with AIza or AQ. Copy the key, not the project name.'); return; }
   var r = await sb.from('app_config').upsert({ id: 1, gemini_key: k, gemini_model: m });
   if (r.error) { toast('Could not save: ' + r.error.message); return; }
   S.ai = { key: k, model: m }; saveCache();
