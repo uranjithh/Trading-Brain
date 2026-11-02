@@ -523,7 +523,7 @@ function render() {
   h += '<div class="cal"><div class="row5"><span class="dow">Mon</span><span class="dow">Tue</span><span class="dow">Wed</span><span class="dow">Thu</span><span class="dow">Fri</span></div>' + rows.join('') + '</div>';
 
   h += '<div class="legend"><span><i class="sw" style="background:#0E8A4F"></i>Profit</span><span><i class="sw" style="background:#C8372D"></i>Loss</span>' +
-    '<span><i class="sw" style="background:#ECECE8"></i>No trades</span><span><i class="sw" style="width:6px;height:6px;border-radius:3px;background:#16181D"></i>Approx</span></div>';
+    '<span><i class="sw" style="background:#ECECE8"></i>No trades</span><span><i class="sw" style="width:6px;height:6px;border-radius:3px;background:#16181D"></i>Estimated charges</span></div>';
   h += '<span class="pastehint">Tip: copy a screenshot and press <b>Ctrl+V</b> here, or drag a screenshot / PDF onto this page.</span>';
   h += '</div><div class="colL2">';
 
@@ -538,7 +538,7 @@ function render() {
   h += '<div class="card stats"><div><div class="l">Green days</div><div class="v g">' + gN + '</div></div>' +
     '<div><div class="l">Red days</div><div class="v r">' + rN + '</div></div>' +
     '<div><div class="l">Win rate</div><div class="v">' + ((gN + rN) ? Math.round(gN / (gN + rN) * 100) + '%' : '—') + '</div></div></div>';
-  if (anyApprox) h += '<span class="foot">Approx = added from a screenshot, charges not included yet. Becomes exact when that week\'s contract note PDF is added.</span>';
+  if (anyApprox) h += '<span class="foot">Dot = from a screenshot, so charges are estimated for your broker. They become exact when that week\'s contract note PDF is added.</span>';
   if (S.lastSync) h += '<span class="foot">Synced ' + new Date(S.lastSync).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) + (S.syncing ? ' · syncing…' : '') + '</span>';
   h += '</div></div>';
   var addOpen = S.sheet && S.sheet.type === 'add';
@@ -592,7 +592,7 @@ function daySheet(date) {
   h += '<div class="sh"><div><div class="s">' + esc(S.who) + ' · ' + fmtDay(date) + '</div><div class="big ' + col(tot) + '">' + (list.length ? money(tot) : '₹0') + '</div>' +
     (list.length ? '<div class="hint">Gross ' + money(gross) + ' · Charges ' + inr(ch) + '</div>' : '') + '</div>' + closeBtn() + '</div>';
   if (!list.length) return h + '<span class="hint" style="padding:6px 0 14px;font-size:14px">No trades on this day.</span>';
-  if (list.some(function (t) { return t.approx; })) h += '<div class="note"><span class="nd"></span><span>Approximate — from screenshot, charges not included. Add this week\'s contract note PDF to make it exact.</span></div>';
+  if (list.some(function (t) { return t.approx; })) h += '<div class="note"><span class="nd"></span><span>From a screenshot. Charges are estimated for your broker; add this week\'s contract note PDF to make them exact.</span></div>';
   h += '<span class="hint">Tap a trade to edit or delete it.</span>';
   [['day', 'Day trading'], ['swing', 'Swing']].forEach(function (g) {
     var gl = list.filter(function (t) { return t.category === g[0]; });
@@ -670,6 +670,7 @@ function settingsSheet() {
   return '<div class="sh"><div><div class="t">Settings · ' + esc(S.who) + '</div><div class="s">Signed in as ' + esc(S.email) + '</div></div>' + closeBtn() + '</div>' +
     '<label class="f">' + esc(S.who) + '\'s starting capital (₹)<input class="in mono" id="s_cap" inputmode="decimal" value="' + esc(st ? st.start_capital : '') + '" placeholder="e.g. 200000" style="font-size:18px;height:50px"></label>' +
     '<span class="hint">The money in the trading account when you started tracking. Later deposits go under + → Add / withdraw funds.</span>' +
+    '<span class="hint">Brokers used for charges: ' + (S.who === 'Chandana' ? 'Groww for everything.' : 'Kotak Neo for Nifty / Sensex / BankNifty, Zerodha for stocks &amp; stock options.') + '</span>' +
     '<button type="button" class="btn dark" data-act="saveCap">Save</button>' +
     '<div style="height:1px;background:var(--soft);margin:2px 0"></div>' +
     '<label class="f">Gemini key (shared by both phones)<input class="in mono" id="s_key" type="password" autocomplete="off" value="' + esc(S.ai.key) + '" placeholder="Paste key here"></label>' +
@@ -682,6 +683,67 @@ function settingsSheet() {
     '<button type="button" class="btn ghost" data-act="changePw">Change my password</button>' +
     '<div class="half"><button type="button" class="btn sm ghost" data-act="sync">Sync now</button><button type="button" class="btn sm ghost" data-act="logout">Sign out</button></div>' +
     '<span class="hint">' + (S.lastSync ? 'Last synced ' + new Date(S.lastSync).toLocaleString('en-IN') : 'Not synced yet') + '</span>';
+}
+
+/* ---------------- brokerage & taxes (rates as of 2026; STT on F&O raised from 1 Apr 2026) ---------------- */
+// Who trades where. Brokerage per executed order; one buy + one sell order assumed per trade.
+var BROKER_OF = {
+  Ranjith: function (t) { return (t.sub === 'nifty' || t.sub === 'sensex' || t.sub === 'banknifty') ? 'kotak' : 'zerodha'; },
+  Chandana: function () { return 'groww'; }
+};
+var BROKER_NAME = { kotak: 'Kotak Neo', zerodha: 'Zerodha', groww: 'Groww' };
+function brokerage(broker, inst, turnover) {
+  // per order
+  if (broker === 'zerodha') {
+    if (inst === 'opt') return 20;
+    if (inst === 'del') return 0;
+    return Math.min(20, turnover * 0.0003);            // intraday & futures: 0.03% or ₹20
+  }
+  if (broker === 'groww') {
+    if (inst === 'opt' || inst === 'fut') return 20;
+    return Math.max(5, Math.min(20, turnover * 0.001)); // equity: 0.1% or ₹20, min ₹5
+  }
+  if (broker === 'kotak') {
+    if (inst === 'opt' || inst === 'fut') return 10;    // Trade Free plan: ₹10 per F&O order
+    if (inst === 'intra') return 0;
+    return Math.max(20, turnover * 0.0025);
+  }
+  return 20;
+}
+function instrumentOf(t) {
+  var sym = String(t.symbol || '').toUpperCase();
+  if (/FUT\b|FUT$/.test(sym)) return 'fut';
+  if (/(CE|PE)\b|(CE|PE)$/.test(sym) || t.sub === 'stockopt') return 'opt';
+  if (t.sub === 'nifty' || t.sub === 'sensex' || t.sub === 'banknifty') return 'opt';
+  return t.category === 'swing' ? 'del' : 'intra';
+}
+function calcCharges(t, who) {
+  var q = Math.abs(num(t.qty)), b = num(t.buy), sl = num(t.sell);
+  if (!q || !b || !sl) return null;                     // can't estimate without prices
+  var inst = instrumentOf(t), broker = (BROKER_OF[who] || BROKER_OF.Ranjith)(t);
+  var bse = t.sub === 'sensex' || /SENSEX|BANKEX/.test(String(t.symbol || '').toUpperCase());
+  var bt = b * q, st = sl * q, tt = bt + st;
+  var brk = brokerage(broker, inst, bt) + brokerage(broker, inst, st);
+  var stt, txn, stamp;
+  if (inst === 'opt') { stt = st * 0.0015; txn = tt * (bse ? 0.000325 : 0.0003553); stamp = bt * 0.00003; }
+  else if (inst === 'fut') { stt = st * 0.0005; txn = tt * (bse ? 0 : 0.0000183); stamp = bt * 0.00002; }
+  else if (inst === 'intra') { stt = st * 0.00025; txn = tt * (bse ? 0.0000375 : 0.0000307); stamp = bt * 0.00003; }
+  else { stt = tt * 0.001; txn = tt * (bse ? 0.0000375 : 0.0000307); stamp = bt * 0.00015; }
+  var sebi = tt * 0.000001;
+  var gst = 0.18 * (brk + txn + sebi);
+  var dp = inst === 'del' ? (broker === 'zerodha' ? 15.34 : broker === 'groww' ? 20 * 1.18 : 20 * 1.18) : 0;
+  var total = brk + stt + txn + sebi + gst + stamp + dp;
+  return { total: Math.round(total * 100) / 100, broker: BROKER_NAME[broker], inst: inst };
+}
+function estFor(r) {
+  var tp = String(r.type || 'day:other').split(':');
+  return calcCharges({ category: tp[0], sub: tp[1] || 'other', symbol: r.symbol, qty: r.qty, buy: r.buy, sell: r.sell }, S.who);
+}
+function estLine(r) {
+  var e = estFor(r);
+  if (!e) return 'Charges: add qty, buy & sell to estimate';
+  var n = num(r.pnl) - e.total;
+  return 'Est. charges ' + inr(e.total) + ' (' + e.broker + ') · Net ' + money(n);
 }
 
 /* ---------------- check screen (after screenshot / PDF) ---------------- */
@@ -721,11 +783,12 @@ function checkScreen() {
         '<label class="f">Sell<input class="in mono' + w('sell') + '" data-f="sell" inputmode="decimal" value="' + esc(r.sell) + '"></label></div>' +
         '<div class="half"><label class="f">Gross P&amp;L (₹)<input class="in mono' + w('pnl') + '" data-f="pnl" inputmode="decimal" value="' + esc(r.pnl) + '"></label>' +
         (c.kind === 'pdf' ? '<label class="f">Charges (₹)<input class="in mono' + w('charges') + '" data-f="charges" inputmode="decimal" value="' + esc(r.charges) + '"></label>' : '<span></span>') + '</div>' +
+        (c.kind === 'ss' ? '<span class="est hint" data-est="' + i + '">' + esc(estLine(r)) + '</span>' : '') +
         (un.length ? '<span class="warnt">Couldn\'t read ' + esc(un.join(', ')) + ' clearly — please check.</span>' : '') +
         (dup ? '<span class="warnt" style="color:var(--muted)">Already saved for this day — will be skipped.</span>' : '') + '</div>';
     });
     h += '<button type="button" class="btn ghost" data-act="addRow">+ Add a trade</button>';
-    if (c.kind === 'ss') h += '<div class="note"><span class="nd"></span><span>Screenshots don\'t show charges, so this day is saved as approximate until the week\'s PDF is added.</span></div>';
+    if (c.kind === 'ss') h += '<div class="note"><span class="nd"></span><span>Brokerage, STT, exchange fees, GST and stamp duty are worked out for ' + esc(S.who) + '\'s broker. They\'re an estimate until the week\'s contract note PDF replaces them with the exact figures.</span></div>';
     else {
       var dates = {}; c.rows.forEach(function (r) { if (validDate(r.date)) dates[r.date] = 1; });
       var existing = mine().filter(function (t) { return dates[t.trade_date]; });
@@ -957,7 +1020,7 @@ async function saveCheck() {
     var recs = rows.map(function (r) {
       var tp = r.type.split(':');
       return { profile: S.who, trade_date: r.date, category: tp[0], sub: tp[1] || 'other', symbol: String(r.symbol).trim().toUpperCase(),
-        qty: numOrNull(r.qty), buy: numOrNull(r.buy), sell: numOrNull(r.sell), pnl: num(r.pnl), charges: c.kind === 'pdf' ? num(r.charges) : 0,
+        qty: numOrNull(r.qty), buy: numOrNull(r.buy), sell: numOrNull(r.sell), pnl: num(r.pnl), charges: c.kind === 'pdf' ? num(r.charges) : ((estFor(r) || {}).total || 0),
         approx: c.kind === 'ss', source: c.kind, upload_id: uploadId, created_by: S.email };
     });
     var res = await sb.from('trades').insert(recs);
@@ -1095,6 +1158,7 @@ function onField(e) {
   if (r.uncertain && r.uncertain.indexOf(f) >= 0) { r.uncertain = r.uncertain.filter(function (x) { return x !== f; }); t.classList.remove('warn'); }
   if (f === 'pnl') r.pnlManual = t.value !== '';
   if (f === 'qty' || f === 'buy' || f === 'sell') recalcRow(i);
+  var estEl = document.querySelector('[data-est="' + i + '"]'); if (estEl) estEl.textContent = estLine(r);
 }
 document.addEventListener('input', onField);
 document.addEventListener('change', function (e) {
