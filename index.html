@@ -41,6 +41,22 @@ button{cursor:pointer}
 .cap .v{font-family:var(--mono);font-size:14px;font-weight:600;margin-top:3px;word-break:break-all}
 .cap .p{font-family:var(--mono);font-size:11px;font-weight:600;margin-top:1px}
 .capnote{display:block;margin:6px 16px 0;font-size:12px;color:var(--muted)}
+.money{margin:0 16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;width:calc(100% - 32px);text-align:left;color:var(--ink)}
+.money .top2{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.money .lbl{font-size:12px;color:var(--muted);font-weight:500}
+.money .now{font-family:var(--mono);font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:2px}
+.money .chg{font-family:var(--mono);font-size:14px;font-weight:600;text-align:right}
+.money .chg small{display:block;font-size:11px;font-weight:600}
+.mrows{display:flex;flex-direction:column;gap:6px;border-top:1px solid #EFEFEB;padding-top:10px}
+.mrow{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;gap:8px}
+.mrow span:first-child{color:var(--ink2)}
+.mrow .mono{font-weight:600}
+.mrow.total{border-top:1px dashed var(--line2);padding-top:7px;font-weight:700}
+.mrow.total span:first-child{color:var(--ink)}
+.mhint{font-size:11px;color:var(--muted)}
+.pwwrap{position:relative}
+.pwwrap .in{padding-right:52px}
+.eye{position:absolute;right:2px;top:2px;width:44px;height:40px;border:0;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center}
 .setcap{margin:0 16px;width:calc(100% - 32px);height:52px;border:1.5px dashed var(--faint);border-radius:16px;background:#fff;font-weight:600;font-size:14px}
 
 .chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:12px 16px 2px}
@@ -169,6 +185,7 @@ select.in{padding-right:4px}
 <div id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="fileSS" accept="image/*" hidden>
 <input type="file" id="filePDF" accept="application/pdf,.pdf" hidden>
+<input type="file" id="fileFunds" accept="image/*" hidden>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -266,6 +283,8 @@ var ICON = {
   down: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7l6 6 4-4 6 8"></path></svg>',
   edit: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg>',
   trash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>',
+  eye: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
+  eyeOff: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.7 0 3.2-.4 4.5-1.1"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M5 12l5 5 9-10"></path></svg>'
 };
 
@@ -376,7 +395,12 @@ function render() {
   var start = st ? num(st.start_capital) : 0;
   var fundsList = S.funds.filter(function (f) { return f.profile === S.who; });
   var fundsTot = fundsList.reduce(function (a, f) { return a + num(f.amount); }, 0);
-  var pnlTot = all.reduce(function (a, t) { return a + net(t); }, 0);
+  var added = fundsList.reduce(function (a, f) { return a + Math.max(0, num(f.amount)); }, 0);
+  var withdrawn = fundsList.reduce(function (a, f) { return a + Math.max(0, -num(f.amount)); }, 0);
+  var grossTot = all.reduce(function (a, t) { return a + num(t.pnl); }, 0);
+  var chargesTot = all.reduce(function (a, t) { return a + num(t.charges); }, 0);
+  var pnlTot = grossTot - chargesTot;
+  var invested = start + added;
   var base = start + fundsTot, present = base + pnlTot;
 
   var h = '<div class="wrap">';
@@ -391,12 +415,17 @@ function render() {
   if (!start && !fundsTot) {
     h += '<button type="button" class="setcap" data-act="settings">+ Set ' + esc(S.who) + '\'s starting capital</button>';
   } else {
-    h += '<div class="card cap">' +
-      '<div><div class="l">Starting capital</div><div class="v">' + inr(start) + '</div></div>' +
-      '<div><div class="l">Present capital</div><div class="v">' + inr(present) + '</div></div>' +
-      '<div><div class="l">Change</div><div class="v ' + col(pnlTot) + '">' + money(pnlTot) + '</div>' +
-      '<div class="p ' + col(pnlTot) + '">' + (base > 0 ? sgn(pnlTot) + (Math.abs(pnlTot) / base * 100).toFixed(2) + '%' : '') + '</div></div></div>';
-    if (Math.round(fundsTot) !== 0) h += '<span class="capnote">Includes ' + money(fundsTot) + ' funds ' + (fundsTot > 0 ? 'added' : 'withdrawn') + ' (not counted as profit)</span>';
+    var pct = invested > 0 ? sgn(pnlTot) + (Math.abs(pnlTot) / invested * 100).toFixed(2) + '%' : '';
+    h += '<button type="button" class="card money" data-act="funds" aria-label="Money summary, tap to add or withdraw funds">' +
+      '<div class="top2"><div><div class="lbl">Money left in account</div><div class="now">' + (present < 0 ? '−' : '') + inr(present) + '</div></div>' +
+      '<div class="chg ' + col(pnlTot) + '">' + money(pnlTot) + '<small>' + pct + ' real P&amp;L</small></div></div>' +
+      '<div class="mrows">' +
+      '<div class="mrow"><span>Starting capital</span><span class="mono">' + inr(start) + '</span></div>' +
+      '<div class="mrow"><span>Funds added</span><span class="mono g">' + (added ? '+' + inr(added) : '₹0') + '</span></div>' +
+      '<div class="mrow"><span>Funds withdrawn</span><span class="mono' + (withdrawn ? ' r' : '') + '">' + (withdrawn ? '−' + inr(withdrawn) : '₹0') + '</span></div>' +
+      '<div class="mrow"><span>Trading P&amp;L <span class="mhint">(gross ' + money(grossTot) + ' − charges ' + inr(chargesTot) + ')</span></span><span class="mono ' + col(pnlTot) + '">' + money(pnlTot) + '</span></div>' +
+      '<div class="mrow total"><span>Money left</span><span class="mono">' + (present < 0 ? '−' : '') + inr(present) + '</span></div>' +
+      '</div><span class="mhint">Tap to add or withdraw funds · real P&amp;L % = P&amp;L ÷ (starting + added)</span></button>';
   }
 
   h += '<div class="chips">' + [['all', 'All'], ['day', 'Day trading'], ['swing', 'Swing']].map(function (c) {
@@ -572,9 +601,11 @@ function fundsSheet() {
   var mode = S.sheet.mode || 'add';
   var list = S.funds.filter(function (f) { return f.profile === S.who; }).slice().reverse();
   return '<div class="sh"><div><div class="t">Funds · ' + esc(S.who) + '</div><div class="s">Money moved in or out of the trading account. Not counted as profit or loss.</div></div>' + closeBtn() + '</div>' +
+    '<button type="button" class="btn ghost" data-act="fundsSS"' + (S.sheet.reading ? ' disabled' : '') + '>' + ICON.img + (S.sheet.reading ? 'Reading screenshot…' : 'Fill from a screenshot') + '</button>' +
+    (S.sheet.readNote ? '<div class="note' + (S.sheet.readOk ? ' ok' : ' warn') + '"><span>' + esc(S.sheet.readNote) + '</span></div>' : '') +
     '<div class="seg"><button type="button" class="tab' + (mode === 'add' ? ' on' : '') + '" data-act="fmode" data-v="add">Add funds</button><button type="button" class="tab' + (mode === 'wd' ? ' on' : '') + '" data-act="fmode" data-v="wd">Withdraw</button></div>' +
-    '<label class="f">Amount (₹)<input class="in mono" id="f_amt" inputmode="decimal" placeholder="0" style="font-size:18px;height:50px"></label>' +
-    '<div class="half"><label class="f">Date<input class="in" type="date" id="f_date" value="' + todayStr() + '"></label><label class="f">Note (optional)<input class="in" id="f_note" autocomplete="off"></label></div>' +
+    '<label class="f">Amount (₹)<input class="in mono" id="f_amt" inputmode="decimal" placeholder="0" style="font-size:18px;height:50px" value="' + esc(S.sheet.amt || '') + '"></label>' +
+    '<div class="half"><label class="f">Date<input class="in" type="date" id="f_date" value="' + esc(S.sheet.date || todayStr()) + '"></label><label class="f">Note (optional)<input class="in" id="f_note" autocomplete="off" value="' + esc(S.sheet.note || '') + '"></label></div>' +
     '<button type="button" class="btn dark" data-act="saveFunds">Save</button>' +
     (list.length ? '<div class="flist"><span class="hint">Earlier entries</span>' + list.map(function (f) {
       return '<div class="frow"><span><span class="mono ' + col(num(f.amount)) + '" style="font-weight:600">' + money(num(f.amount)) + '</span> · ' + fmtDay(f.fund_date) + (f.note ? ' · ' + esc(f.note) : '') + '</span>' +
@@ -593,8 +624,9 @@ function settingsSheet() {
     '<label class="f">AI model (leave as is)<input class="in mono" id="s_model" autocomplete="off" value="' + esc(S.ai.model || DEFAULT_MODEL) + '"></label>' +
     '<button type="button" class="btn ghost" data-act="saveKey">Save AI key</button>' +
     '<div style="height:1px;background:var(--soft);margin:2px 0"></div>' +
-    '<button type="button" class="btn ghost" data-act="shareSetup">Send setup link to Chandana</button>' +
-    '<span class="hint">She opens it on her phone, signs in with her email and password — done. No setup on her side.</span>' +
+    '<label class="f" for="s_pw">New password for ' + esc(S.email) + '</label><div class="pwwrap" style="margin-top:-9px"><input class="in" type="password" id="s_pw" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="At least 6 characters">' +
+    '<button type="button" class="eye" data-act="eye2" aria-label="Show password">' + ICON.eye + '</button></div>' +
+    '<button type="button" class="btn ghost" data-act="changePw">Change my password</button>' +
     '<div class="half"><button type="button" class="btn sm ghost" data-act="sync">Sync now</button><button type="button" class="btn sm ghost" data-act="logout">Sign out</button></div>' +
     '<span class="hint">' + (S.lastSync ? 'Last synced ' + new Date(S.lastSync).toLocaleString('en-IN') : 'Not synced yet') + '</span>';
 }
@@ -756,14 +788,46 @@ var AI_PROMPT = [
   '- From a contract note use the real charges (brokerage, STT, exchange, SEBI, GST, stamp duty); if only given per day, use day_charges. From a screenshot charges = 0.',
   '- Never invent numbers. If a value is unreadable use null and list it in "uncertain".'
 ].join('\n');
+var FUNDS_PROMPT = [
+  'You read a screenshot from an Indian broker app (Kotak Neo, Zerodha Kite, etc.) or a bank/UPI app showing money moved INTO or OUT OF a trading account.',
+  'Return ONLY JSON: {"type":"add"|"withdraw"|null,"amount":number|null,"date":"YYYY-MM-DD"|null,"note":"short label e.g. UPI pay-in, Withdrawal to HDFC","status":"success"|"pending"|"failed"|null}',
+  'Pay-in / add funds / deposit = "add". Payout / withdraw / transfer to bank = "withdraw". If several entries are shown, use the most recent one.',
+  'Never invent numbers; use null when unreadable.'
+].join('\n');
+async function readFundsSS(file) {
+  S.sheet.amt = $('f_amt') ? $('f_amt').value : S.sheet.amt;
+  S.sheet.reading = true; S.sheet.readNote = ''; renderSheet();
+  try {
+    var data = await compressImage(file);
+    var out = await geminiJSON(FUNDS_PROMPT, [{ inline_data: { mime_type: 'image/jpeg', data: data } }, { text: 'Today is ' + todayStr() + '.' }]);
+    if (!S.sheet || S.sheet.type !== 'funds') return;
+    if (out.amount) S.sheet.amt = String(Math.abs(num(out.amount)));
+    if (out.type === 'add' || out.type === 'withdraw') S.sheet.mode = out.type === 'add' ? 'add' : 'wd';
+    if (validDate(out.date)) S.sheet.date = out.date;
+    if (out.note) S.sheet.note = String(out.note).slice(0, 60);
+    S.sheet.readOk = !!out.amount && out.status !== 'failed';
+    S.sheet.readNote = !out.amount ? 'Couldn\'t find an amount — please type it.' :
+      out.status === 'failed' ? 'This transfer looks FAILED in the screenshot — don\'t save it unless the money really moved.' :
+      out.status === 'pending' ? 'Filled in. The transfer looks pending — save it once it\'s done.' : 'Filled in from the screenshot. Check and tap Save.';
+  } catch (e) {
+    if (!S.sheet || S.sheet.type !== 'funds') return;
+    S.sheet.readOk = false; S.sheet.readNote = e.message || 'Could not read the screenshot.';
+  }
+  S.sheet.reading = false; renderSheet();
+}
 async function readWithAI(payload) {
-  var key = (S.ai.key || '').trim();
-  if (!key) throw new Error('No Gemini key yet — add it in ⚙ Settings.');
   var parts = payload.kind === 'image'
     ? [{ inline_data: { mime_type: payload.media_type, data: payload.data } }, { text: 'This is a broker app screenshot. Today is ' + payload.today + '. If no date is visible, use null.' }]
     : [{ text: 'Contract note text (today is ' + payload.today + '):\n\n' + payload.text.slice(0, 120000) }];
+  var out = await geminiJSON(AI_PROMPT, parts);
+  if (!Array.isArray(out.trades)) out.trades = [];
+  return out;
+}
+async function geminiJSON(prompt, parts) {
+  var key = (S.ai.key || '').trim();
+  if (!key) throw new Error('No Gemini key yet — add it in ⚙ Settings.');
   var body = JSON.stringify({
-    systemInstruction: { parts: [{ text: AI_PROMPT }] },
+    systemInstruction: { parts: [{ text: prompt }] },
     contents: [{ role: 'user', parts: parts }],
     generationConfig: { temperature: 0, responseMimeType: 'application/json' }
   });
@@ -785,10 +849,8 @@ async function readWithAI(payload) {
     var cand = j && j.candidates && j.candidates[0];
     var text = cand && cand.content && cand.content.parts ? cand.content.parts.map(function (p) { return p.text || ''; }).join('') : '';
     var a = text.indexOf('{'), z = text.lastIndexOf('}');
-    if (a < 0 || z < 0) throw new Error('AI did not return trades.');
-    var out = JSON.parse(text.slice(a, z + 1));
-    if (!Array.isArray(out.trades)) out.trades = [];
-    return out;
+    if (a < 0 || z < 0) throw new Error('AI did not return a result.');
+    return JSON.parse(text.slice(a, z + 1));
   }
   throw new Error('No Gemini model available.');
 }
@@ -906,6 +968,13 @@ async function saveCap() {
   S.settings[S.who] = Object.assign({}, S.settings[S.who] || {}, { profile: S.who, start_capital: v }); saveCache();
   closeSheet(); toast('Starting capital saved');
 }
+async function changePw() {
+  var v = $('s_pw').value;
+  if (v.length < 6) { toast('Password needs at least 6 characters.'); return; }
+  var r = await sb.auth.updateUser({ password: v });
+  if (r.error) { toast('Could not change: ' + r.error.message); return; }
+  $('s_pw').value = ''; toast('Password changed. Use the new one next time.');
+}
 async function saveKey() {
   var k = $('s_key').value.trim(), m = $('s_model').value.trim() || DEFAULT_MODEL;
   var r = await sb.from('app_config').upsert({ id: 1, gemini_key: k, gemini_model: m });
@@ -935,7 +1004,11 @@ document.addEventListener('click', function (e) {
     case 'close': closeSheet(); break;
     case 'settings': openSheet({ type: 'settings' }); break;
     case 'funds': openSheet({ type: 'funds', mode: 'add' }); break;
-    case 'fmode': S.sheet.mode = v; renderSheet(); break;
+    case 'fmode': S.sheet.amt = $('f_amt').value; S.sheet.date = $('f_date').value; S.sheet.note = $('f_note').value; S.sheet.mode = v; renderSheet(); break;
+    case 'eye2': var p2 = $('s_pw'); var sh2 = p2.type === 'text'; p2.type = sh2 ? 'password' : 'text'; el.innerHTML = sh2 ? ICON.eye : ICON.eyeOff; el.setAttribute('aria-label', sh2 ? 'Show password' : 'Hide password'); break;
+    case 'changePw': changePw(); break;
+    case 'fundsSS': $('fileFunds').value = ''; $('fileFunds').click(); break;
+    case 'eye': var pw = $('l_pw'); var showing = pw.type === 'text'; pw.type = showing ? 'password' : 'text'; el.setAttribute('aria-label', showing ? 'Show password' : 'Hide password'); el.innerHTML = showing ? ICON.eye : ICON.eyeOff; pw.focus(); break;
     case 'pickSS': $('fileSS').value = ''; $('fileSS').click(); break;
     case 'pickPDF': $('filePDF').value = ''; $('filePDF').click(); break;
     case 'tt': S.openTrade = S.openTrade === id ? null : id; renderSheet(); break;
@@ -974,6 +1047,7 @@ document.addEventListener('change', function (e) {
   if (e.target.id === 'c_date' && S.check) renderSheet();
 });
 $('fileSS').addEventListener('change', function () { var f = this.files && this.files[0]; if (f) startCheck('ss', f); });
+$('fileFunds').addEventListener('change', function () { var f = this.files && this.files[0]; if (f && S.sheet && S.sheet.type === 'funds') readFundsSS(f); });
 $('filePDF').addEventListener('change', function () { var f = this.files && this.files[0]; if (f) startCheck('pdf', f); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.sheet && S.sheet.type !== 'whoami' && !(S.check && S.check.saving)) closeSheet(); });
 
@@ -1009,14 +1083,15 @@ async function shareSetup() {
 function renderLogin(err) {
   $('overlay').innerHTML = '';
   $('main').innerHTML = '<form class="login" id="loginForm"><h1>P&amp;L Calendar</h1><span class="hint" style="font-size:14px">Sign in once on this phone. You\'ll stay signed in.</span>' +
-    '<label class="f">Email<input class="in" type="email" id="l_email" autocomplete="username" required></label>' +
-    '<label class="f">Password<input class="in" type="password" id="l_pw" autocomplete="current-password" required></label>' +
+    '<label class="f">Email<input class="in" type="email" id="l_email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>' +
+    '<label class="f" for="l_pw">Password</label><div class="pwwrap" style="margin-top:-9px"><input class="in" type="password" id="l_pw" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required>' +
+    '<button type="button" class="eye" data-act="eye" aria-label="Show password">' + ICON.eye + '</button></div>' +
     (err ? '<span class="err">' + esc(err) + '</span>' : '') +
     '<button class="btn dark" type="submit" id="l_btn">Sign in</button></form>';
   $('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     $('l_btn').disabled = true; $('l_btn').textContent = 'Signing in…';
-    var r = await sb.auth.signInWithPassword({ email: $('l_email').value.trim(), password: $('l_pw').value });
+    var r = await sb.auth.signInWithPassword({ email: $('l_email').value.trim().toLowerCase(), password: $('l_pw').value });
     if (r.error) renderLogin(r.error.message === 'Invalid login credentials' ? 'Wrong email or password.' : r.error.message);
   });
 }
