@@ -466,6 +466,25 @@ function moneyFor(who, y, m) {
 // Charges vs profit, split by segment
 var SEG_ORDER = [['day:nifty', 'Nifty'], ['day:sensex', 'Sensex'], ['day:banknifty', 'BankNifty'], ['day:stockopt', 'Stock options'], ['day:stocks', 'Stocks'], ['day:other', 'Other'], ['swing', 'Swing']];
 function segOf(t) { return t.category === 'swing' ? 'swing' : 'day:' + (SUB_LABEL[t.sub] ? t.sub : 'other'); }
+function missingCharges(list) {
+  return list.filter(function (t) { return !num(t.charges) && calcCharges(t, t.profile); });
+}
+async function fillMissingCharges() {
+  var list = missingCharges(mine());
+  if (!list.length) { toast('No trades are missing charges.'); return; }
+  if (!window.confirm('Estimate charges for ' + list.length + ' trade' + (list.length === 1 ? '' : 's') + ' that have ₹0 charges, using ' + S.who + '\'s broker rates? You can still replace them later with a contract note PDF.')) return;
+  toast('Updating ' + list.length + ' trades…');
+  var rows = list.map(function (t) {
+    var o = {}; Object.keys(t).forEach(function (k) { o[k] = t[k]; });
+    o.charges = calcCharges(t, t.profile).total; o.approx = true; delete o.updated_at; return o;
+  });
+  for (var i = 0; i < rows.length; i += 200) {
+    var r = await sb.from('trades').upsert(rows.slice(i, i + 200));
+    if (r.error) { toast('Could not update: ' + r.error.message); return; }
+  }
+  toast('Charges estimated for ' + rows.length + ' trades.');
+  loadAll();
+}
 function chargesCard(trades, monthLabel, inReport) {
   if (!trades.length) return '';
   var gross = 0, ch = 0, seg = {};
@@ -484,6 +503,7 @@ function chargesCard(trades, monthLabel, inReport) {
     '<div class="ctop"><div><div class="l">Charges' + (monthLabel ? ' in ' + monthLabel : '') + '</div><div class="cv r">−' + inr(ch) + '</div></div>' +
     '<div class="cside"><span>' + trades.length + ' trades</span><span>~' + inr(avg) + ' per trade</span></div></div>' +
     '<div class="cline">' + line + '</div>' +
+    (missingCharges(trades).length ? '<div class="note warn"><span>' + missingCharges(trades).length + ' trade' + (missingCharges(trades).length === 1 ? ' has' : 's have') + ' ₹0 charges (the file didn\'t include them).</span></div><button type="button" class="btn sm dark" data-act="fillCharges">Fill missing charges</button>' : '') +
     '<div class="ctab" role="table" aria-label="Charges by segment"><div class="crh" role="row"><span role="columnheader">Segment</span><span role="columnheader">Trades</span><span role="columnheader">Charges</span><span role="columnheader">Net P&amp;L</span></div>';
   SEG_ORDER.forEach(function (sg) {
     var e = seg[sg[0]]; if (!e) return;
@@ -943,7 +963,7 @@ function checkScreen() {
         '<label class="f">Sell<input class="in mono' + w('sell') + '" data-f="sell" inputmode="decimal" value="' + esc(r.sell) + '"></label></div>' +
         '<div class="half"><label class="f">Gross P&amp;L (₹)<input class="in mono' + w('pnl') + '" data-f="pnl" inputmode="decimal" value="' + esc(r.pnl) + '"></label>' +
         (c.kind === 'pdf' ? '<label class="f">Charges (₹)<input class="in mono' + w('charges') + '" data-f="charges" inputmode="decimal" value="' + esc(r.charges) + '"></label>' : '<span></span>') + '</div>' +
-        (c.kind === 'ss' ? '<span class="est hint" data-est="' + i + '">' + esc(estLine(r)) + '</span>' : '') +
+        ((c.kind === 'ss' || !num(r.charges)) ? '<span class="est hint" data-est="' + i + '">' + esc(estLine(r)) + (c.kind === 'pdf' ? ' (no charges in file — estimated)' : '') + '</span>' : '') +
         (un.length ? '<span class="warnt">Couldn\'t read ' + esc(un.join(', ')) + ' clearly — please check.</span>' : '') +
         (dup ? '<span class="warnt" style="color:var(--muted)">Already saved for this day — will be skipped.</span>' : '') + '</div>';
     });
@@ -1019,7 +1039,7 @@ function compressImage(file) {
     img.src = url;
   });
 }
-var APP_VERSION = '2 Nov 2026 · v8';
+var APP_VERSION = '3 Nov 2026 · v9';
 function withTimeout(p, ms, msg) {
   return new Promise(function (res, rej) {
     var t = setTimeout(function () { rej(new Error(msg)); }, ms);
@@ -1284,8 +1304,9 @@ async function saveCheck() {
     var recs = rows.map(function (r) {
       var tp = r.type.split(':');
       return { profile: S.who, trade_date: r.date, category: tp[0], sub: tp[1] || 'other', symbol: String(r.symbol).trim().toUpperCase(),
-        qty: numOrNull(r.qty), buy: numOrNull(r.buy), sell: numOrNull(r.sell), pnl: num(r.pnl), charges: c.kind === 'pdf' ? num(r.charges) : ((estFor(r) || {}).total || 0),
-        approx: c.kind === 'ss', source: c.kind, upload_id: uploadId, created_by: S.email };
+        qty: numOrNull(r.qty), buy: numOrNull(r.buy), sell: numOrNull(r.sell), pnl: num(r.pnl),
+        charges: (c.kind === 'pdf' && num(r.charges)) ? num(r.charges) : ((estFor(r) || {}).total || 0),
+        approx: c.kind === 'ss' || !num(r.charges), source: c.kind, upload_id: uploadId, created_by: S.email };
     });
     var res = await sb.from('trades').insert(recs);
     if (res.error) throw res.error;
@@ -1418,6 +1439,7 @@ document.addEventListener('click', function (e) {
     case 'delFund': deleteFund(id); break;
     case 'saveCap': saveCap(); break;
     case 'saveBal': saveBal(); break;
+    case 'fillCharges': fillMissingCharges(); break;
     case 'saveKey': saveKey(); break;
     case 'reports': openSheet({ type: 'reports' }); break;
     case 'report': openSheet({ type: 'report', k: v }); break;
